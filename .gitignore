@@ -1,6 +1,7 @@
-# data
+# folders/files
 data
 .DS_Store
+figures
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
