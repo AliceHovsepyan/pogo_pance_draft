@@ -252,3 +252,184 @@ def get_variants(a_seq,b_seq, ref_prot, ref_gene ,catch_right , codons, catch_le
     variants_dict["Codons"] = gather_codon_variants(a_seq, b_seq, codons = codons, use_backward_read=use_backward_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_gene=ref_gene)
 
     return variants_dict
+
+def demultiplex_reads(a_seqs, b_seqs,ref_gene, Barcodes , Primer_seq, used_Barcodes, Sections = ["S1", "S2", "S3", "S4"], max_mismatch_primerseq = 1, filter_for_n_mut = True, n_mut_treshold = 20, a_ids = None, b_ids = None):
+
+    read_Dict = {}
+    ids_Dict = {}
+    ## split the reads into the samples according to Barcode and AraC section -> thereby keeping the forward and reverse reads together
+    for Barcode in used_Barcodes: 
+        print(Barcode)
+        for Section in Sections:
+            fwd_BC_Primer_seq = Barcodes[Barcode + "_Fwd"] + Primer_seq[Section+"_fwd_primer"] 
+            rev_BC_Primer_seq = Barcodes[Barcode + "_Rev"] + Primer_seq[Section+"_rev_primer"] 
+            ### select the reads that contain the forward and reverse BC + primer sequences, thereby allowing for 2 mismatches in the primer sequences but no errors in BCs
+            fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_Fwd"])] == Barcodes[Barcode + "_Fwd"] and  sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_Fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd_primer"])]) <= max_mismatch_primerseq)]
+                        
+            rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_Rev"] )] == Barcodes[Barcode + "_Rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_Rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev_primer"])]) <= max_mismatch_primerseq) ]
+
+            indexes = set(fwd_idxs + rev_idxs)
+            
+            a_seq_Bc_Sec = [a_seqs[i] for i in indexes]
+            b_seq_Bc_Sec = [b_seqs[i] for i in indexes]
+
+            if a_ids and b_ids:
+                a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
+                b_ids_Bc_Sec = [b_ids[i].split(" ")[0]  for i in indexes]
+
+            ref_seq_Section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd_primer"]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev_primer"]))+len(Primer_seq[Section+"_rev_primer"])]
+
+            if filter_for_n_mut:
+                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_Fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_Rev"]), n_mut_treshold = n_mut_treshold, ref_gene = ref_seq_Section)
+
+            print(len(a_seq_Bc_Sec), "reads")
+            read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
+            read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
+
+            if a_ids and b_ids:
+                ids_Dict[f"{Barcode}_{Section}_R1"] = a_ids_Bc_Sec
+                ids_Dict[f"{Barcode}_{Section}_R2"] = b_ids_Bc_Sec
+
+    if a_ids and b_ids:
+        return  read_Dict, ids_Dict
+    else:
+        return read_Dict 
+
+
+def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = "DNA", fig_folder = None, return_df = False):
+    """
+    data_type = "DNA", "AA" or "Codons" 
+    reference nucleotides/AAs/Codons are shown in grey (set to NA)
+    backward: if True, only backward reads are used
+    input data should be a dataframe with the relative counts of each nucleotide/AA/Codon at each position
+    name = plot title
+    """
+    #process data
+    if data_type == "DNA":
+        Nt_order = ['A','C', 'G', 'T']
+        data = data.loc[Nt_order]
+    elif data_type == "AA": 
+        AA_order = ['A','I','L','M','F','W','Y','V','S','T','N','Q','R','H','K','D','E','C','G','P','*']
+        data = data.loc[AA_order]
+    
+    read_len = data.shape[1]
+    
+    if data_type in ["DNA", "AA"]:
+        if backward: 
+            for idx in range(read_len):
+                data.loc[ref_seq[::-1][idx], len(ref_seq)-idx-1] = np.nan
+            seq_pos = [x for x in ref_seq[-read_len:]] ## for xlabel in plot
+            
+        else: 
+            for idx in range(read_len):
+                data.loc[ref_seq[idx], idx] = np.nan
+        
+            seq_pos = [x for x in ref_seq[:read_len]] ## for xlabel in plot
+
+    elif data_type == "Codons":
+        codons = [ref_seq[idx:idx+3] for idx in range(0,len(ref_seq),3)]
+        if backward: 
+            for idx in range(read_len):
+                data.loc[codons[::-1][idx], len(codons)-idx-1] = np.nan
+            seq_pos = [x for x in codons[-read_len:]] ## for xlabel in plot
+        
+        else: 
+            for idx in range(read_len):
+                data.loc[codons[idx], idx] = np.nan
+            seq_pos = [x for x in codons[:read_len]]## for xlabel in plot
+
+    if return_df: 
+        return data
+    else: 
+        plt.figure(figsize=(30,10))
+        sns.reset_defaults()
+        
+        #sns.set(font_scale =5)
+        ax = sns.heatmap(data=data, cmap='viridis', cbar_kws={'label': f"relative counts", "pad": 0.02}, yticklabels=True, xticklabels = True)
+        plt.title(name, fontsize=20)
+        for _, spine in ax.spines.items():
+            spine.set_visible(True)
+            spine.set_linewidth(2)
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=1, fontsize=10)
+        ax.xaxis.set_tick_params(width=2)
+        rotation = 90 if data_type == "Codons" else 1
+        ax.set_xticklabels(seq_pos, rotation=rotation, fontsize=10)
+        ax.yaxis.set_tick_params(width=2)
+        ax.set_facecolor('gray')
+        ax.grid(False)
+        plt.xlabel("sequence", fontsize = 20)
+
+        if fig_folder is not None:    
+            plt.savefig(f"{fig_folder}/{name}_mutation_enrichement.pdf", bbox_inches="tight")
+
+
+        plt.show()
+        plt.clf()
+
+
+
+def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True
+):
+
+    tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
+    tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
+    ref_gene_section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd_primer"][tripl_st:]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev_primer"][tripl_end:]))+len(Primer_seq[Section+"_rev_primer"][tripl_end:])]
+
+    ref_prot_section = translate_dna2aa(ref_gene_section)
+    pltsize = len(variants)+1 if plot_coverage else len(variants)
+
+    fig, axes = plt.subplots(pltsize, 1, figsize=(20, 20))
+    fig.subplots_adjust(wspace=0.01)
+
+    for idx, variant in enumerate(variants):
+        Bc = variant[-3:]
+        a_seq = read_dict[variant + f"_{Section}_R1"]
+        b_seq = read_dict[variant + f"_{Section}_R2"]
+
+        seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_backward_read=use_backward_read, codons = codons)
+
+        seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
+        coverage_df = pd.DataFrame(seq_variants.sum())
+
+        seq_variants = seq_variants/seq_variants.sum()
+        ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
+
+
+        plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
+        
+
+
+        xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
+        plot_df = plot_df.iloc[:,:xlim_plot]
+
+        if combine_mut_rates: 
+            plot_df = pd.DataFrame(plot_df.sum(axis = 0)).T
+
+        my_cmap = plt.get_cmap('viridis').copy()
+        if color_above_vmax_red:
+            my_cmap.set_over('orange')
+            
+
+        sns.heatmap(plot_df, annot=False, ax=axes[idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': f"relative counts", "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False)
+
+        for _, spine in axes[idx].spines.items():
+            spine.set_visible(True)
+            spine.set_linewidth(2)
+        axes[idx].set_yticklabels( axes[idx].get_yticklabels(), rotation=1, fontsize=7)
+        axes[idx].set_title(plt_titles[idx], fontsize = 15)
+        axes[idx].set_facecolor('gray')
+        axes[idx].grid(False)
+        
+        if idx == len(variants)-1:
+             axes[idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+
+    if plot_coverage:
+        sns.heatmap(coverage_df.T, ax = axes[pltsize-1],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500)
+        axes[idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+        
+    if FigFolder:
+        plt.savefig(f"{FigFolder}/{Section}_mutation_enrichment_comparison.pdf", bbox_inches="tight")
+    plt.show()
+
+
+        
