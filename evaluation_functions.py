@@ -432,4 +432,100 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
     plt.show()
 
 
+
+def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False
+):
+    pltsize = len(variants)+1 if plot_coverage else len(variants)
+
+    fig, axes = plt.subplots(pltsize, len(Sections), figsize=(20*len(Sections), 20))
+    fig.subplots_adjust(wspace=0.03)
+
+    for s_idx, Section in enumerate(Sections):
+
+        tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
+        tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
+        ref_gene_section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd_primer"][tripl_st:]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev_primer"][tripl_end:]))+len(Primer_seq[Section+"_rev_primer"][tripl_end:])]
+
+        ref_prot_section = translate_dna2aa(ref_gene_section)
+
+        for idx, variant in enumerate(variants):
+            Bc = variant[-3:]
+            a_seq = read_dict[variant + f"_{Section}_R1"]
+            b_seq = read_dict[variant + f"_{Section}_R2"]
+
+            seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_backward_read=use_backward_read, codons = codons)
+
+            seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
+            coverage_df = pd.DataFrame(seq_variants.sum())
+
+            seq_variants = seq_variants/seq_variants.sum()
+            ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
+
+
+            plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
+            
+
+
+            xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
+            plot_df = plot_df.iloc[:,:xlim_plot]
+
+            if combine_mut_rates: 
+                plot_df = pd.DataFrame(plot_df.sum(axis = 0)).T
+
+            my_cmap = plt.get_cmap('viridis').copy()
+            if color_above_vmax_red:
+                my_cmap.set_over('orange')
+                
+
+            sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': f"relative counts", "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
+
+            for _, spine in axes[idx,s_idx].spines.items():
+                spine.set_visible(True)
+                spine.set_linewidth(2)
+            axes[idx,s_idx].set_yticklabels( axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
+            axes[idx,s_idx].set_title(plt_titles[idx], fontsize = 15)
+            
+            axes[idx,s_idx].set_facecolor('gray')
+            axes[idx,s_idx].grid(False)
+            # if idx == 0:
+            #     axes[idx,s_idx].set_title(Section, fontsize = 30)
+            
+            if idx == len(variants)-1:
+                axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+
+        if plot_coverage:
+            sns.heatmap(coverage_df.T, ax = axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500, cbar = show_cbar_for_each)
+            axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+        
+    if not show_cbar_for_each:
+        ## add at the bottom of the figure horizontally a cbar for the relative counts
+        cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
+        cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+        cbar.set_label('relative counts', fontsize = 25)
+        cbar.ax.tick_params(labelsize=20)
+
+        # fig.subplots_adjust(right=0.8)
+        # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        # cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax)
+        # cbar.set_label('relative counts', fontsize = 20)
+        # cbar.ax.tick_params(labelsize=15)
+
+        # ## ad cbar also for coverage
+        cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
+        cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+        cbar.set_label('read depth', fontsize = 25)
+        cbar.ax.tick_params(labelsize=20)
+
+        # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        # cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax)
+        # cbar.set_label('coverage', fontsize = 20)
+        # cbar.ax.tick_params(labelsize=15)
+        
+        ## to the left of all axes[0] heatmaps, add text based on plt_titles
+        # for idx, title in enumerate(plt_titles):
+        #     fig.text(0.1, 0.6*(1/(idx+1)) + idx*(1/(idx+1)), title, fontsize = 30, ha = "center", va = "center")
+        
+    if FigFolder:
+        plt.savefig(f"{FigFolder}/PACE_allSections_mutation_enrichment_comparison.pdf", bbox_inches="tight")
+    plt.show()
         
