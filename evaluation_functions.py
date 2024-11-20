@@ -296,7 +296,7 @@ def demultiplex_reads(a_seqs, b_seqs,ref_gene, Barcodes , Primer_seq, used_Barco
         return read_Dict 
 
 
-def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = "DNA", fig_folder = None, return_df = False):
+def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = "DNA", fig_folder = None, return_df = False, cmap = "viridis", cbar_label = "mutation rate", vmax = None):
     """
     data_type = "DNA", "AA" or "Codons" 
     reference nucleotides/AAs/Codons are shown in grey (set to NA)
@@ -345,7 +345,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
         sns.reset_defaults()
         
         #sns.set(font_scale =5)
-        ax = sns.heatmap(data=data, cmap='viridis', cbar_kws={'label': f"relative counts", "pad": 0.02}, yticklabels=True, xticklabels = True)
+        ax = sns.heatmap(data=data, cmap=cmap, cbar_kws={'label': cbar_label, "pad": 0.02}, yticklabels=True, xticklabels = True, center=0 if cmap == "coolwarm" else None, vmax = vmax, vmin = -vmax)
         plt.title(name, fontsize=20)
         for _, spine in ax.spines.items():
             spine.set_visible(True)
@@ -368,8 +368,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
 
 
 
-def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True
-):
+def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate"):
 
     tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
     tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
@@ -410,7 +409,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
             my_cmap.set_over('orange')
             
 
-        sns.heatmap(plot_df, annot=False, ax=axes[idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': f"relative counts", "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False)
+        sns.heatmap(plot_df, annot=False, ax=axes[idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False)
 
         for _, spine in axes[idx].spines.items():
             spine.set_visible(True)
@@ -433,8 +432,8 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
 
 
 
-def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False
-):
+def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate"):
+
     pltsize = len(variants)+1 if plot_coverage else len(variants)
 
     fig, axes = plt.subplots(pltsize, len(Sections), figsize=(20*len(Sections), 20))
@@ -477,13 +476,14 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
                 my_cmap.set_over('orange')
                 
 
-            sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': f"relative counts", "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
+            sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
 
             for _, spine in axes[idx,s_idx].spines.items():
                 spine.set_visible(True)
                 spine.set_linewidth(2)
             axes[idx,s_idx].set_yticklabels( axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
-            axes[idx,s_idx].set_title(plt_titles[idx], fontsize = 15)
+            if show_plttitles: 
+                axes[idx,s_idx].set_title(plt_titles[idx], fontsize = 15)
             
             axes[idx,s_idx].set_facecolor('gray')
             axes[idx,s_idx].grid(False)
@@ -501,7 +501,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         ## add at the bottom of the figure horizontally a cbar for the relative counts
         cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
         cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-        cbar.set_label('relative counts', fontsize = 25)
+        cbar.set_label(cbar_label, fontsize = 25)
         cbar.ax.tick_params(labelsize=20)
 
         # fig.subplots_adjust(right=0.8)
@@ -529,3 +529,18 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         plt.savefig(f"{FigFolder}/PACE_allSections_mutation_enrichment_comparison.pdf", bbox_inches="tight")
     plt.show()
         
+
+def find_reference_seq(ref_gene, Primer_seq, Section, Primer_out_of_triplets):
+    """
+    ref_gene = reference gene sequence
+    catch_left = left catch sequence
+    catch_right = right catch sequence
+    Primer_seq = dictionary with primer sequences
+    Sections = list of sections
+    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts
+    """ 
+    tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
+    tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
+    ref_gene_section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd_primer"][tripl_st:]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev_primer"][tripl_end:]))+len(Primer_seq[Section+"_rev_primer"][tripl_end:])]
+
+    return ref_gene_section
