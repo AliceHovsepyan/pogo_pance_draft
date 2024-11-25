@@ -17,6 +17,8 @@ import os.path
 from matplotlib.lines import Line2D
 import json
 import shutil
+import matplotlib.gridspec as gridspec
+
 
 
 
@@ -122,7 +124,7 @@ def gather_AA_variants(a_seq, b_seq, ref_prot,catch_left, catch_right,  use_back
 
     """
     mutation_dict = {}
-    
+
     for idx in range(len(ref_prot)):
         mutation_dict[idx] = {'A':0, 'C':0, 'D':0, 'E':0, 'F':0, 'G':0, 
                             'H':0, 'I':0, 'K':0, 'L':0, 'M':0, 'N':0, 
@@ -368,7 +370,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
 
 
 
-def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate"):
+def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None):
 
     tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
     tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
@@ -393,9 +395,13 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
         seq_variants = seq_variants/seq_variants.sum()
         ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
 
-
         plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
-        
+
+        if show_only_pos:
+            positions = show_only_pos[Section]
+            plot_df = plot_df.iloc[:,positions]
+            ref = "".join([ref[pos] for pos in positions])
+            coverage_df = coverage_df.iloc[positions,:]
 
 
         xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
@@ -407,7 +413,6 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
         my_cmap = plt.get_cmap('viridis').copy()
         if color_above_vmax_red:
             my_cmap.set_over('orange')
-            
 
         sns.heatmap(plot_df, annot=False, ax=axes[idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False)
 
@@ -433,18 +438,30 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
 
 
 
-def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate"):
+def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None):
 
     pltsize = len(variants)+1 if plot_coverage else len(variants)
 
-    fig, axes = plt.subplots(pltsize, len(Sections), figsize=(20*len(Sections), 20))
-    fig.subplots_adjust(wspace=0.03)
+    if show_only_pos:
+        fig = plt.figure(figsize=(20*len(Sections), 20))
+        gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=[len(show_only_pos[s]) for s in Sections])
+
+        axes = {}
+        for i in range(pltsize):
+            for j in range(len(Sections)):
+                ax = fig.add_subplot(gs[i, j])
+                axes[(i, j)] = ax
+        fig.subplots_adjust(wspace=0.03)
+        
+    else:
+        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(20*len(Sections), 20))
+        fig.subplots_adjust(wspace=0.03)
 
     for s_idx, Section in enumerate(Sections):
 
         tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
         tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
-        ref_gene_section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd_primer"][tripl_st:]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev_primer"][tripl_end:]))+len(Primer_seq[Section+"_rev_primer"][tripl_end:])]
+        ref_gene_section = find_reference_seq(ref_gene=ref_gene,Section = Section, Primer_seq=Primer_seq, Primer_out_of_triplets=Primer_out_of_triplets)
 
         ref_prot_section = translate_dna2aa(ref_gene_section)
 
@@ -456,16 +473,14 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_backward_read=use_backward_read, codons = codons)
 
             seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
+
             coverage_df = pd.DataFrame(seq_variants.sum())
 
             seq_variants = seq_variants/seq_variants.sum()
             ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
 
-
             plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
             
-
-
             xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
             plot_df = plot_df.iloc[:,:xlim_plot]
 
@@ -475,8 +490,13 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             my_cmap = plt.get_cmap('viridis').copy()
             if color_above_vmax_red:
                 my_cmap.set_over('orange')
-                
 
+            if show_only_pos:
+                positions = show_only_pos[Section]
+                plot_df = plot_df.iloc[:,positions]
+                ref = "".join([ref[pos] for pos in positions])
+                coverage_df = coverage_df.iloc[positions,:]
+            
             sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
 
             for _, spine in axes[idx,s_idx].spines.items():
@@ -492,7 +512,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             #     axes[idx,s_idx].set_title(Section, fontsize = 30)
             
             if idx == len(variants)-1:
-                axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+                axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=50 if data_type != "DNA" else 7)
 
         if plot_coverage:
             sns.heatmap(coverage_df.T, ax = axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500, cbar = show_cbar_for_each)
@@ -547,15 +567,6 @@ def find_reference_seq(ref_gene, Primer_seq, Section, Primer_out_of_triplets):
     return ref_gene_section
 
 
-CycleA = "Mutagenesis"
-BarcodeA = "BC1"
-CylceB = "NegPosSelection"
-BarcodeB = "BC1"
-Section = "S1"
-
-stepA = f"{CycleA}_{BarcodeA}_{Section}"
-stepB = f"{CylceB}_{BarcodeB}_{Section}"
-
 ## calculate fold change to compare steps/cycles
 def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarodeB, Primer_out_of_triplets,codons,Primer_seq, Barcodes, ref_gene, data_type="AA", combine_mut_rates = False): 
     """
@@ -568,7 +579,6 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarodeB, 
     stepA_breads = read_dictionary[stepA+"_R2"]
     stepB_areads = read_dictionary[stepB+"_R1"]
     stepB_breads = read_dictionary[stepB+"_R2"]
-
 
     ref_gene_section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
 
@@ -583,7 +593,6 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarodeB, 
     stepA_variants = pd.DataFrame.from_dict(stepA_variants[data_type])
     coverage_A = pd.DataFrame(stepA_variants.sum())
     stepA_variants = stepA_variants+1 ## add pseudocount
-
 
     ## relative counts
     stepA_variants = stepA_variants/stepA_variants.sum()
