@@ -572,7 +572,7 @@ def find_reference_seq(ref_gene, Primer_seq, Section, Primer_out_of_triplets):
 
 
 ## calculate fold change to compare steps/cycles
-def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarodeB, Primer_out_of_triplets,codons,Primer_seq, Barcodes, ref_gene, data_type="AA", combine_mut_rates = False): 
+def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarcodeB, Primer_out_of_triplets,codons,Primer_seq, Barcodes, ref_gene, data_type="AA", combine_mut_rates = False): 
     """
     all_reads = dictionary with the reads of each step
     stepA, stepB = names of the steps to compare
