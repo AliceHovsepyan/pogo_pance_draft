@@ -371,6 +371,9 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
 
 
 def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None):
+    """
+    compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
+    """
 
     tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
     tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
