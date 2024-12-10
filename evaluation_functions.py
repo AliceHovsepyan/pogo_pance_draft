@@ -81,6 +81,8 @@ def read_sequences(variant, catch_left, catch_right, base_dir = os.getcwd(), arb
 def read_filtering(a_seqs, b_seqs,ref_gene, catch_left , catch_right, n_mut_treshold = 10 ): 
     """
     filter out reads with more than n_mut_treshold mutations to get rid of reads with indels that lead to frameshifts and scew the results (as we are here only interested in mutations)
+    catch_left = left catch sequence
+    catch_right = right catch sequence (dna_rev_comp(catch_right) is used to find the sequence in the reverse reads)
     """
     print("total forward reads before filtering", sum([a_Seq != "" for a_Seq in a_seqs]))
     print("total reverse reads before filtering", sum([b_Seq != "" for b_Seq in b_seqs]))
@@ -103,6 +105,8 @@ def read_filtering(a_seqs, b_seqs,ref_gene, catch_left , catch_right, n_mut_tres
             if dna_rev_comp(catch_right) in b_seq:
                 index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
                 gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
+                # print(ref_gene[::-1])
+                # print(gene_b[::-1])
                 total_muts_b = sum([ref_gene[::-1][idx] != gene_b[::-1][idx] for idx in range(len(gene_b))])
 
                 if total_muts_b <= n_mut_treshold:
@@ -347,7 +351,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
         sns.reset_defaults()
         
         #sns.set(font_scale =5)
-        ax = sns.heatmap(data=data, cmap=cmap, cbar_kws={'label': cbar_label, "pad": 0.02}, yticklabels=True, xticklabels = True, center=0 if cmap == "coolwarm" else None, vmax = vmax, vmin = -vmax if vmax else None)
+        ax = sns.heatmap(data=data, cmap=cmap, cbar_kws={'label': cbar_label, "pad": 0.02}, yticklabels=True, xticklabels = True, center=0 if cmap == "coolwarm" else None, vmax = vmax, vmin = -vmax if (cmap=="coolwarm" and vmax) else None)
         plt.title(name, fontsize=20)
         for _, spine in ax.spines.items():
             spine.set_visible(True)
