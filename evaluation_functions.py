@@ -22,7 +22,10 @@ import matplotlib.gridspec as gridspec
 
 
 
-def find(string, value_list):
+def find(string, 
+         value_list
+         ):
+    
     indexes = [string.find(letter) for letter in value_list]
     try: 
         ind = min([index for index in indexes if index != -1])
@@ -30,7 +33,15 @@ def find(string, value_list):
         ind = 250
     return ind
 
-def read_sequences(variant, catch_left, catch_right, base_dir = os.getcwd(), arbitrary_cutoff_a = False, arbitrary_cutoff_b = False, quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], return_qualities_ids = False):
+
+def read_sequences(variant, 
+                   catch_left, 
+                   catch_right, 
+                   base_dir = os.getcwd(), 
+                   arbitrary_cutoff_a = False, 
+                   arbitrary_cutoff_b = False, 
+                   quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], 
+                   return_qualities_ids = False):
     """
     read sequences from fastq files while filtering for quality score (read is aborted at first nt with higher error rate than 1%)
     arbitrary_cutoff_a: at which position to arbitrary cut off the forward reads that already went through the quality score filter (= max length of the reads)
@@ -69,6 +80,7 @@ def read_sequences(variant, catch_left, catch_right, base_dir = os.getcwd(), arb
                 b_qualities.append(b_qual[:cutoff_b])
                 a_ids.append(a_id)
                 b_ids.append(b_id)
+                
         print("total reads", total_read+1)
 
     if return_qualities_ids:
@@ -77,13 +89,18 @@ def read_sequences(variant, catch_left, catch_right, base_dir = os.getcwd(), arb
         return a_sequences, b_sequences
 
 
-
-def read_filtering(a_seqs, b_seqs,ref_gene, catch_left , catch_right, n_mut_treshold = 10 ): 
+def read_filtering(a_seqs, 
+                   b_seqs,
+                   ref_gene, 
+                   catch_left , 
+                   catch_right, 
+                   n_mut_treshold = 10 ): 
     """
     filter out reads with more than n_mut_treshold mutations to get rid of reads with indels that lead to frameshifts and scew the results (as we are here only interested in mutations)
     catch_left = left catch sequence
     catch_right = right catch sequence (dna_rev_comp(catch_right) is used to find the sequence in the reverse reads)
     """
+
     print("total forward reads before filtering", sum([a_Seq != "" for a_Seq in a_seqs]))
     print("total reverse reads before filtering", sum([b_Seq != "" for b_Seq in b_seqs]))
 
@@ -118,10 +135,17 @@ def read_filtering(a_seqs, b_seqs,ref_gene, catch_left , catch_right, n_mut_tres
 
     print("total forward reads after filtering", sum([a_seq != "" for a_seq in a_sequences]))
     print("total reverse reads after filtering", sum([b_seq != "" for b_seq in b_sequences]))
+
     return a_sequences, b_sequences
 
 
-def gather_AA_variants(a_seq, b_seq, ref_prot,catch_left, catch_right,  use_backward_read=True, use_forward_read = True ):
+def gather_AA_variants(a_seq, 
+                       b_seq, 
+                       ref_prot,
+                       catch_left, 
+                       catch_right,  
+                       use_rev_read=True, 
+                       use_forward_read = True ):
     """
     returns a dictionary with the counts of each amino acid at each position
     n_mut_treshold: maximum number of mutations allowed (to filter out reads with indels leading to frameshifts that scew the results, as we are only interested in mutations)
@@ -144,7 +168,7 @@ def gather_AA_variants(a_seq, b_seq, ref_prot,catch_left, catch_right,  use_back
                 for idx, pos in enumerate(tr_a):
                     mutation_dict[idx][pos] += 1
 
-        if use_backward_read: 
+        if use_rev_read: 
             if dna_rev_comp(catch_right) in b_seq:
                 index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
                 gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
@@ -155,7 +179,7 @@ def gather_AA_variants(a_seq, b_seq, ref_prot,catch_left, catch_right,  use_back
                     mutation_dict[len(ref_prot)-idx-1][pos] += 1
     return mutation_dict
 
-def gather_codon_variants(a_seq, b_seq, ref_gene ,catch_left, catch_right, codons , use_backward_read= True,use_forward_read = True, ):
+def gather_codon_variants(a_seq, b_seq, ref_gene ,catch_left, catch_right, codons , use_rev_read= True,use_forward_read = True, ):
     """
     returns a dictionary with the counts of each codon at each position
     """
@@ -174,7 +198,7 @@ def gather_codon_variants(a_seq, b_seq, ref_gene ,catch_left, catch_right, codon
                 for i in range(0,len(gene_a)//3*3,3): # triplets
                     mutation_dict[i//3][gene_a[i:i+3]] += 1
 
-        if use_backward_read:
+        if use_rev_read:
             if dna_rev_comp(catch_right) in b_seq:
                 index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
                 gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
@@ -190,7 +214,7 @@ def gather_codon_variants(a_seq, b_seq, ref_gene ,catch_left, catch_right, codon
 
 
 
-def gather_nt_variants(a_seq, b_seq ,ref_seq, catch_left , catch_right , use_backward_read= True,use_forward_read = True):
+def gather_nt_variants(a_seq, b_seq ,ref_seq, catch_left , catch_right , use_rev_read= True,use_forward_read = True):
     """
     returns a dictionary with the counts of each nt at each position
     """
@@ -209,7 +233,7 @@ def gather_nt_variants(a_seq, b_seq ,ref_seq, catch_left , catch_right , use_bac
                 for idx, pos in enumerate(gene_a):
                     mutation_dict[idx][pos] += 1
 
-        if use_backward_read:
+        if use_rev_read:
             if dna_rev_comp(catch_right) in b_seq:
                 index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
                 gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
@@ -220,7 +244,7 @@ def gather_nt_variants(a_seq, b_seq ,ref_seq, catch_left , catch_right , use_bac
     return mutation_dict
 
 
-def process_reads(ref_prot, ref_gene,catch_left, catch_right, codons,use_backward_read = True, use_forward_read = True, arbitrary_cutoff_a = False, arbitrary_cutoff_b= False, variants = None, filter_for_n_mut = True, n_mut_treshold=10, base_dir = os.getcwd()):
+def process_reads(ref_prot, ref_gene,catch_left, catch_right, codons,use_rev_read = True, use_forward_read = True, arbitrary_cutoff_a = False, arbitrary_cutoff_b= False, variants = None, filter_for_n_mut = True, n_mut_treshold=10, base_dir = os.getcwd()):
     """
     process reads for given variants
     use_backward_read: whether or not to use the backward read
@@ -242,7 +266,7 @@ def process_reads(ref_prot, ref_gene,catch_left, catch_right, codons,use_backwar
             if filter_for_n_mut:
                 a_seq, b_seq = read_filtering(a_seq, b_seq, ref_gene=ref_gene, catch_left= catch_left, catch_right=catch_right,n_mut_treshold = n_mut_treshold)
             variants_dict[name] = {}
-            variants_dict[name] = get_variants(a_seq,b_seq,ref_prot = ref_prot, ref_gene = ref_gene, use_backward_read=use_backward_read,use_forward_read=use_forward_read, catch_left=catch_left, catch_right=catch_right, codons = codons)
+            variants_dict[name] = get_variants(a_seq,b_seq,ref_prot = ref_prot, ref_gene = ref_gene, use_rev_read=use_rev_read,use_forward_read=use_forward_read, catch_left=catch_left, catch_right=catch_right, codons = codons)
 
             print(f'Done: {name}')
 
@@ -250,12 +274,12 @@ def process_reads(ref_prot, ref_gene,catch_left, catch_right, codons,use_backwar
         #     pkl.dump(variants_dict, handle)
     return variants_dict
 
-def get_variants(a_seq,b_seq, ref_prot, ref_gene ,catch_right , codons, catch_left , use_backward_read=True,use_forward_read=True):
+def get_variants(a_seq,b_seq, ref_prot, ref_gene ,catch_right , codons, catch_left , use_rev_read=True,use_forward_read=True):
     
     variants_dict = {}
-    variants_dict["AA"] = gather_AA_variants(a_seq, b_seq, use_backward_read=use_backward_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_prot=ref_prot)
-    variants_dict["DNA"] = gather_nt_variants(a_seq, b_seq, use_backward_read=use_backward_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_seq=ref_gene)
-    variants_dict["Codons"] = gather_codon_variants(a_seq, b_seq, codons = codons, use_backward_read=use_backward_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_gene=ref_gene)
+    variants_dict["AA"] = gather_AA_variants(a_seq, b_seq, use_rev_read=use_rev_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_prot=ref_prot)
+    variants_dict["DNA"] = gather_nt_variants(a_seq, b_seq, use_rev_read=use_rev_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_seq=ref_gene)
+    variants_dict["Codons"] = gather_codon_variants(a_seq, b_seq, codons = codons, use_rev_read=use_rev_read, use_forward_read=use_forward_read, catch_right=catch_right, catch_left=catch_left, ref_gene=ref_gene)
 
     return variants_dict
 
@@ -302,7 +326,7 @@ def demultiplex_reads(a_seqs, b_seqs,ref_gene, Barcodes , Primer_seq, used_Barco
         return read_Dict 
 
 
-def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = "DNA", fig_folder = None, return_df = False, cmap = "viridis", cbar_label = "mutation rate", vmax = None):
+def plot_mutation_enrichment(data, name, ref_seq, reverse = False, data_type = "DNA", fig_folder = None, return_df = False, cmap = "viridis", cbar_label = "mutation rate", vmax = None):
     """
     data_type = "DNA", "AA" or "Codons" 
     reference nucleotides/AAs/Codons are shown in grey (set to NA)
@@ -321,7 +345,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
     read_len = data.shape[1]
     
     if data_type in ["DNA", "AA"]:
-        if backward: 
+        if reverse: 
             for idx in range(read_len):
                 data.loc[ref_seq[::-1][idx], len(ref_seq)-idx-1] = np.nan
             seq_pos = [x for x in ref_seq[-read_len:]] ## for xlabel in plot
@@ -334,7 +358,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
 
     elif data_type == "Codons":
         codons = [ref_seq[idx:idx+3] for idx in range(0,len(ref_seq),3)]
-        if backward: 
+        if reverse: 
             for idx in range(read_len):
                 data.loc[codons[::-1][idx], len(codons)-idx-1] = np.nan
             seq_pos = [x for x in codons[-read_len:]] ## for xlabel in plot
@@ -374,7 +398,7 @@ def plot_mutation_enrichment(data, name, ref_seq, backward = False, data_type = 
 
 
 
-def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None):
+def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None):
     """
     compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
     """
@@ -394,7 +418,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
         a_seq = read_dict[variant + f"_{Section}_R1"]
         b_seq = read_dict[variant + f"_{Section}_R2"]
 
-        seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_backward_read=use_backward_read, codons = codons)
+        seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
 
         seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
         coverage_df = pd.DataFrame(seq_variants.sum())
@@ -402,7 +426,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
         seq_variants = seq_variants/seq_variants.sum()
         ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
 
-        plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
+        plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , reverse = use_rev_read, data_type = data_type, return_df=True)
 
         if show_only_pos:
             positions = show_only_pos[Section]
@@ -445,7 +469,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
 
 
 
-def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_backward_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None):
+def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None):
     """
     compare mutation enrichment for all sections as heatmap with coverage plotted below
     """
@@ -480,7 +504,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             a_seq = read_dict[variant + f"_{Section}_R1"]
             b_seq = read_dict[variant + f"_{Section}_R2"]
 
-            seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_backward_read=use_backward_read, codons = codons)
+            seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
 
             seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
 
@@ -489,7 +513,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             seq_variants = seq_variants/seq_variants.sum()
             ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
 
-            plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , backward = use_backward_read, data_type = data_type, return_df=True)
+            plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , reverse = use_rev_read, data_type = data_type, return_df=True)
             
             xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
             plot_df = plot_df.iloc[:,:xlim_plot]
@@ -536,26 +560,11 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         cbar.set_label(cbar_label, fontsize = 25)
         cbar.ax.tick_params(labelsize=20)
 
-        # fig.subplots_adjust(right=0.8)
-        # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-        # cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax)
-        # cbar.set_label('relative counts', fontsize = 20)
-        # cbar.ax.tick_params(labelsize=15)
-
         # ## ad cbar also for coverage
         cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
         cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
         cbar.set_label('read depth', fontsize = 25)
         cbar.ax.tick_params(labelsize=20)
-
-        # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-        # cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax)
-        # cbar.set_label('coverage', fontsize = 20)
-        # cbar.ax.tick_params(labelsize=15)
-        
-        ## to the left of all axes[0] heatmaps, add text based on plt_titles
-        # for idx, title in enumerate(plt_titles):
-        #     fig.text(0.1, 0.6*(1/(idx+1)) + idx*(1/(idx+1)), title, fontsize = 30, ha = "center", va = "center")
         
     if FigFolder:
         plt.savefig(f"{FigFolder}/PACE_allSections_mutation_enrichment_comparison.pdf", bbox_inches="tight")
@@ -599,7 +608,7 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarcodeB,
     ref_prot_section = translate_dna2aa(ref_gene_section)
 
     ##get all variants 
-    stepA_variants = get_variants(a_seq=stepA_areads, b_seq = stepA_breads, catch_left=Barcodes[f"{BarcodeA}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{BarcodeA}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=True, use_backward_read=True, codons = codons)
+    stepA_variants = get_variants(a_seq=stepA_areads, b_seq = stepA_breads, catch_left=Barcodes[f"{BarcodeA}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{BarcodeA}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=True, use_rev_read=True, codons = codons)
 
     stepA_variants = pd.DataFrame.from_dict(stepA_variants[data_type])
     coverage_A = pd.DataFrame(stepA_variants.sum())
@@ -608,7 +617,7 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarcodeB,
     ## relative counts
     stepA_variants = stepA_variants/stepA_variants.sum()
 
-    stepB_variants = get_variants(a_seq=stepB_areads, b_seq = stepB_breads, catch_left=Barcodes[f"{BarcodeB}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{BarcodeB}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=True, use_backward_read=True, codons = codons)
+    stepB_variants = get_variants(a_seq=stepB_areads, b_seq = stepB_breads, catch_left=Barcodes[f"{BarcodeB}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{BarcodeB}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=True, use_rev_read=True, codons = codons)
 
     stepB_variants = pd.DataFrame.from_dict(stepB_variants[data_type])
     coverage_B = pd.DataFrame(stepB_variants.sum())

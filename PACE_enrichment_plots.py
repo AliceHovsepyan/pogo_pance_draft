@@ -126,6 +126,6 @@ if FigFolder is not None:
 
 ### compare mutagenesis and negative selection steps for mutation enrichement
 for Section in ["S1", "S2", "S3", "S4"]:
-    compare_mut_enrichement(all_reads, Section, ref_gene, use_backward_read =True, use_forward_read= True, data_type = "AA", combine_mut_rates=True, FigFolder=FigFolder, Primer_out_of_triplets=Primer_out_of_triplets, Barcodes=Barcodes, Primer_seq= Primer_seq, codons=codons, vmax = 0.1)
+    compare_mut_enrichement(all_reads, Section, ref_gene, use_rev_read =True, use_forward_read= True, data_type = "AA", combine_mut_rates=True, FigFolder=FigFolder, Primer_out_of_triplets=Primer_out_of_triplets, Barcodes=Barcodes, Primer_seq= Primer_seq, codons=codons, vmax = 0.1)
 
     print(f"#### Section {Section} done ####")
