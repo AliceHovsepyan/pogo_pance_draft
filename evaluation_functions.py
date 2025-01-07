@@ -410,13 +410,13 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
     ref_prot_section = translate_dna2aa(ref_gene_section)
     pltsize = len(variants)+1 if plot_coverage else len(variants)
 
-    fig, axes = plt.subplots(pltsize, 1, figsize=(20, 20))
+    fig, axes = plt.subplots(pltsize, 1, figsize=(20, 25))
     fig.subplots_adjust(wspace=0.01)
 
     for idx, variant in enumerate(variants):
-        Bc = variant[-3:]
+        Bc = variant[variant.index("BC"):variant.index("BC")+3]
         a_seq = read_dict[variant + f"_{Section}_R1"]
-        b_seq = read_dict[variant + f"_{Section}_R2"]
+        b_seq = read_dict[variant+ f"_{Section}_R2"]
 
         seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
 
@@ -450,7 +450,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
         for _, spine in axes[idx].spines.items():
             spine.set_visible(True)
             spine.set_linewidth(2)
-        axes[idx].set_yticklabels( axes[idx].get_yticklabels(), rotation=1, fontsize=7)
+        axes[idx].set_yticklabels( axes[idx].get_yticklabels(), rotation=1, fontsize=5)
         axes[idx].set_title(plt_titles[idx], fontsize = 15)
         axes[idx].set_facecolor('gray')
         axes[idx].grid(False)
@@ -472,6 +472,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
 def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None):
     """
     compare mutation enrichment for all sections as heatmap with coverage plotted below
+    show_only_pos: dictionary with the positions to show for each section
     """
 
     pltsize = len(variants)+1 if plot_coverage else len(variants)
@@ -488,7 +489,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         fig.subplots_adjust(wspace=0.03)
         
     else:
-        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(20*len(Sections), 20))
+        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25))
         fig.subplots_adjust(wspace=0.03)
 
     for s_idx, Section in enumerate(Sections):
@@ -500,8 +501,8 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         ref_prot_section = translate_dna2aa(ref_gene_section)
 
         for idx, variant in enumerate(variants):
-            Bc = variant[-3:]
-            a_seq = read_dict[variant + f"_{Section}_R1"]
+            Bc = variant[variant.index("BC"):variant.index("BC")+3]
+            a_seq = read_dict[variant+ f"_{Section}_R1"]
             b_seq = read_dict[variant + f"_{Section}_R2"]
 
             seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
@@ -567,7 +568,8 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         cbar.ax.tick_params(labelsize=20)
         
     if FigFolder:
-        plt.savefig(f"{FigFolder}/PACE_allSections_mutation_enrichment_comparison.pdf", bbox_inches="tight")
+        name = "PACE_allSections_mutation_enrichment_comparison.pdf" if not show_only_pos else "PACE_allSections_mutation_enrichment_comparison_highMutPos.pdf"
+        plt.savefig(f"{FigFolder}/{name}", bbox_inches="tight")
     plt.show()
         
 
