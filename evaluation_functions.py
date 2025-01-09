@@ -398,7 +398,7 @@ def plot_mutation_enrichment(data, name, ref_seq, reverse = False, data_type = "
 
 
 
-def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None):
+def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], plot_coverage = True, color_above_vmax_red = True, cbar_label = "mutation rate", show_only_pos = None, fig_size = (20,25)):
     """
     compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
     """
@@ -410,7 +410,7 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
     ref_prot_section = translate_dna2aa(ref_gene_section)
     pltsize = len(variants)+1 if plot_coverage else len(variants)
 
-    fig, axes = plt.subplots(pltsize, 1, figsize=(20, 25))
+    fig, axes = plt.subplots(pltsize, 1, figsize=fig_size)
     fig.subplots_adjust(wspace=0.01)
 
     for idx, variant in enumerate(variants):
@@ -469,16 +469,18 @@ def compare_mut_enrichement(read_dict, Section, ref_gene, Primer_out_of_triplets
 
 
 
-def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None):
+def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None, fig_size = None, bias_per_pos = None):
     """
     compare mutation enrichment for all sections as heatmap with coverage plotted below
     show_only_pos: dictionary with the positions to show for each section
+    bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
     """
 
     pltsize = len(variants)+1 if plot_coverage else len(variants)
+    pltsize = pltsize + 1 if bias_per_pos else pltsize
 
     if show_only_pos:
-        fig = plt.figure(figsize=(20*len(Sections), 20))
+        fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
         gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=[len(show_only_pos[s]) for s in Sections])
 
         axes = {}
@@ -489,7 +491,7 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         fig.subplots_adjust(wspace=0.03)
         
     else:
-        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25))
+        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
         fig.subplots_adjust(wspace=0.03)
 
     for s_idx, Section in enumerate(Sections):
@@ -554,6 +556,17 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
             sns.heatmap(coverage_df.T, ax = axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500, cbar = show_cbar_for_each)
             axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] if not xlabelticks else ref, rotation=1, fontsize=15 if data_type != "DNA" else 7)
         
+        if bias_per_pos:
+            spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
+            vmin_bias = min(([val for values in bias_per_pos.values() for val in values]))
+            vmax_bias = max(([val for values in bias_per_pos.values() for val in values]))
+            if show_only_pos:
+                positions = show_only_pos[Section]
+                biases = [bias_per_pos[Section][pos] for pos in positions] ## filter to pos of interest
+            else:
+                biases = bias_per_pos[Section]
+            sns.heatmap(pd.DataFrame(biases).T, ax = axes[pltsize-2, s_idx], cmap = spec_cmap, square = False, cbar_kws={'label': "bias per position", "pad": 0.02}, yticklabels= False, xticklabels=False, cbar = show_cbar_for_each, vmin = vmin_bias, vmax = vmax_bias)
+        
     if not show_cbar_for_each:
         ## add at the bottom of the figure horizontally a cbar for the relative counts
         cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
@@ -562,10 +575,17 @@ def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets,
         cbar.ax.tick_params(labelsize=20)
 
         # ## ad cbar also for coverage
-        cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
-        cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-        cbar.set_label('read depth', fontsize = 25)
-        cbar.ax.tick_params(labelsize=20)
+        if plot_coverage:
+            cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
+            cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+            cbar.set_label('read depth', fontsize = 25)
+            cbar.ax.tick_params(labelsize=20)
+
+        if bias_per_pos: 
+            cbar_ax = fig.add_axes([0.45, 0.05, 0.15, 0.02])
+            cbar = fig.colorbar(axes[pltsize-2,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+            cbar.set_label('DP6 bias per position', fontsize = 25)
+            cbar.ax.tick_params(labelsize=20)
         
     if FigFolder:
         name = "PACE_allSections_mutation_enrichment_comparison.pdf" if not show_only_pos else "PACE_allSections_mutation_enrichment_comparison_highMutPos.pdf"
