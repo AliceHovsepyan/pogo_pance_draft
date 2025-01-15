@@ -470,148 +470,148 @@ import matplotlib.gridspec as gridspec
 
 
 
-def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None, fig_size = None, bias_per_pos = None, return_df = False):
-    """
-    compare mutation enrichment for all sections as heatmap with coverage plotted below
-    show_only_pos: dictionary with the positions to show for each section
-    bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
-    """
+# def compare_mut_enrichement_for_all(read_dict, ref_gene, Primer_out_of_triplets, Barcodes ,Primer_seq , codons, Sections = ["S1", "S2", "S3", "S4"], use_rev_read =True, use_forward_read= True, xlim_plot = None,FigFolder = None, data_type = "DNA", combine_mut_rates =False,vmin = 0, vmax =None, variants = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], plt_titles =["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"], plot_coverage = True, color_above_vmax_red = True, show_cbar_for_each=False, show_plttitles = True, cbar_label = "mutation rate", show_only_pos = None, xlabelticks = None, fig_size = None, bias_per_pos = None, return_df = False):
+#     """
+#     compare mutation enrichment for all sections as heatmap with coverage plotted below
+#     show_only_pos: dictionary with the positions to show for each section
+#     bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
+#     """
 
-    pltsize = len(variants)+1 if plot_coverage else len(variants)
-    pltsize = pltsize + 1 if bias_per_pos else pltsize
-    if return_df:
-        final_df = pd.DataFrame()
-        position_labels = []
+#     pltsize = len(variants)+1 if plot_coverage else len(variants)
+#     pltsize = pltsize + 1 if bias_per_pos else pltsize
+#     if return_df:
+#         final_df = pd.DataFrame()
+#         position_labels = []
 
-    if show_only_pos:
-        fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
-        gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=[len(show_only_pos[s]) for s in Sections])
+#     if show_only_pos:
+#         fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
+#         gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=[len(show_only_pos[s]) for s in Sections])
 
-        axes = {}
-        for i in range(pltsize):
-            for j in range(len(Sections)):
-                ax = fig.add_subplot(gs[i, j])
-                axes[(i, j)] = ax
-        fig.subplots_adjust(wspace=0.03)
+#         axes = {}
+#         for i in range(pltsize):
+#             for j in range(len(Sections)):
+#                 ax = fig.add_subplot(gs[i, j])
+#                 axes[(i, j)] = ax
+#         fig.subplots_adjust(wspace=0.03)
         
-    else:
-        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
-        fig.subplots_adjust(wspace=0.03)
+#     else:
+#         fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
+#         fig.subplots_adjust(wspace=0.03)
 
-    for s_idx, Section in enumerate(Sections):
-        if return_df: 
-            enriched_regions_sec_cylce= pd.DataFrame()
+#     for s_idx, Section in enumerate(Sections):
+#         if return_df: 
+#             enriched_regions_sec_cylce= pd.DataFrame()
 
-        tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
-        tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
-        ref_gene_section = find_reference_seq(ref_gene=ref_gene,Section = Section, Primer_seq=Primer_seq, Primer_out_of_triplets=Primer_out_of_triplets)
+#         tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
+#         tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
+#         ref_gene_section = find_reference_seq(ref_gene=ref_gene,Section = Section, Primer_seq=Primer_seq, Primer_out_of_triplets=Primer_out_of_triplets)
 
-        ref_prot_section = translate_dna2aa(ref_gene_section)
+#         ref_prot_section = translate_dna2aa(ref_gene_section)
 
-        for idx, variant in enumerate(variants):
+#         for idx, variant in enumerate(variants):
 
-            Bc = variant[variant.index("BC"):variant.index("BC")+3]
-            a_seq = read_dict[variant+ f"_{Section}_R1"]
-            b_seq = read_dict[variant + f"_{Section}_R2"]
+#             Bc = variant[variant.index("BC"):variant.index("BC")+3]
+#             a_seq = read_dict[variant+ f"_{Section}_R1"]
+#             b_seq = read_dict[variant + f"_{Section}_R2"]
 
-            seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
+#             seq_variants = get_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_section, ref_gene = ref_gene_section, use_forward_read=use_forward_read, use_rev_read=use_rev_read, codons = codons)
 
-            seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
+#             seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
 
-            coverage_df = pd.DataFrame(seq_variants.sum())
+#             coverage_df = pd.DataFrame(seq_variants.sum())
 
-            seq_variants = seq_variants/seq_variants.sum()
-            ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
+#             seq_variants = seq_variants/seq_variants.sum()
+#             ref =  ref_gene_section if data_type!= "AA" else ref_prot_section
 
-            plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , reverse = use_rev_read, data_type = data_type, return_df=True)
+#             plot_df = plot_mutation_enrichment(data = seq_variants, name = variant, ref_seq = ref , reverse = use_rev_read, data_type = data_type, return_df=True)
             
-            xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
-            plot_df = plot_df.iloc[:,:xlim_plot]
+#             xlim_plot = xlim_plot if xlim_plot else plot_df.shape[1]
+#             plot_df = plot_df.iloc[:,:xlim_plot]
 
-            if combine_mut_rates: 
-                plot_df = pd.DataFrame(plot_df.sum(axis = 0)).T
+#             if combine_mut_rates: 
+#                 plot_df = pd.DataFrame(plot_df.sum(axis = 0)).T
 
-            my_cmap = plt.get_cmap('viridis').copy()
-            if color_above_vmax_red:
-                my_cmap.set_over('orange')
+#             my_cmap = plt.get_cmap('viridis').copy()
+#             if color_above_vmax_red:
+#                 my_cmap.set_over('orange')
 
-            if show_only_pos:
-                positions = show_only_pos[Section]
-                plot_df = plot_df.iloc[:,positions]
-                ref_section_start = ref_gene[Primer_out_of_triplets["S1_fwd_primer"]:].index(ref_gene_section)//3
-                ref = "".join([ref[pos] for pos in positions]) if not xlabelticks else [xlabelticks[ref_section_start:][pos] for pos in positions]
-                coverage_df = coverage_df.iloc[positions,:]
-                if return_df and idx == 0:
-                    position_labels.extend(ref)
+#             if show_only_pos:
+#                 positions = show_only_pos[Section]
+#                 plot_df = plot_df.iloc[:,positions]
+#                 ref_section_start = ref_gene[Primer_out_of_triplets["S1_fwd_primer"]:].index(ref_gene_section)//3
+#                 ref = "".join([ref[pos] for pos in positions]) if not xlabelticks else [xlabelticks[ref_section_start:][pos] for pos in positions]
+#                 coverage_df = coverage_df.iloc[positions,:]
+#                 if return_df and idx == 0:
+#                     position_labels.extend(ref)
             
-            sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
+#             sns.heatmap(plot_df, annot=False, ax=axes[idx,s_idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(variants)-1 else True, yticklabels = True if combine_mut_rates == False else False, cbar = show_cbar_for_each )
 
-            for _, spine in axes[idx,s_idx].spines.items():
-                spine.set_visible(True)
-                spine.set_linewidth(2)
-            axes[idx,s_idx].set_yticklabels( axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
-            if show_plttitles: 
-                axes[idx,s_idx].set_title(plt_titles[idx], fontsize = 15)
+#             for _, spine in axes[idx,s_idx].spines.items():
+#                 spine.set_visible(True)
+#                 spine.set_linewidth(2)
+#             axes[idx,s_idx].set_yticklabels( axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
+#             if show_plttitles: 
+#                 axes[idx,s_idx].set_title(plt_titles[idx], fontsize = 15)
             
-            axes[idx,s_idx].set_facecolor('gray')
-            axes[idx,s_idx].grid(False)
-            # if idx == 0:
-            #     axes[idx,s_idx].set_title(Section, fontsize = 30)
+#             axes[idx,s_idx].set_facecolor('gray')
+#             axes[idx,s_idx].grid(False)
+#             # if idx == 0:
+#             #     axes[idx,s_idx].set_title(Section, fontsize = 30)
             
-            if idx == len(variants)-1:
-                axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] if not xlabelticks else ref, rotation=1, fontsize=15 if data_type != "DNA" else 7)
+#             if idx == len(variants)-1:
+#                 axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] if not xlabelticks else ref, rotation=1, fontsize=15 if data_type != "DNA" else 7)
             
-            if return_df:
-                enriched_regions_sec_cylce = pd.concat([enriched_regions_sec_cylce, plot_df], axis=0)
+#             if return_df:
+#                 enriched_regions_sec_cylce = pd.concat([enriched_regions_sec_cylce, plot_df], axis=0)
 
 
-        if plot_coverage:
-            sns.heatmap(coverage_df.T, ax = axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500, cbar = show_cbar_for_each)
-            axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] if not xlabelticks else ref, rotation=1, fontsize=15 if data_type != "DNA" else 7)
+#         if plot_coverage:
+#             sns.heatmap(coverage_df.T, ax = axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500, cbar = show_cbar_for_each)
+#             axes[idx,s_idx].set_xticklabels(ref[:xlim_plot] if not xlabelticks else ref, rotation=1, fontsize=15 if data_type != "DNA" else 7)
         
-        if bias_per_pos:
-            spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
-            vmin_bias = min(([val for values in bias_per_pos.values() for val in values]))
-            vmax_bias = max(([val for values in bias_per_pos.values() for val in values]))
-            if show_only_pos:
-                positions = show_only_pos[Section]
-                biases = [bias_per_pos[Section][pos] for pos in positions] ## filter to pos of interest
-            else:
-                biases = bias_per_pos[Section]
-            sns.heatmap(pd.DataFrame(biases).T, ax = axes[pltsize-2, s_idx], cmap = spec_cmap, square = False, cbar_kws={'label': "chance of codon mutation", "pad": 0.02}, yticklabels= False, xticklabels=False, cbar = show_cbar_for_each, vmin = vmin_bias, vmax = vmax_bias)
+#         if bias_per_pos:
+#             spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
+#             vmin_bias = min(([val for values in bias_per_pos.values() for val in values]))
+#             vmax_bias = max(([val for values in bias_per_pos.values() for val in values]))
+#             if show_only_pos:
+#                 positions = show_only_pos[Section]
+#                 biases = [bias_per_pos[Section][pos] for pos in positions] ## filter to pos of interest
+#             else:
+#                 biases = bias_per_pos[Section]
+#             sns.heatmap(pd.DataFrame(biases).T, ax = axes[pltsize-2, s_idx], cmap = spec_cmap, square = False, cbar_kws={'label': "chance of codon mutation", "pad": 0.02}, yticklabels= False, xticklabels=False, cbar = show_cbar_for_each, vmin = vmin_bias, vmax = vmax_bias)
 
-        if return_df: 
-            final_df = pd.concat([final_df, enriched_regions_sec_cylce], axis=1)
+#         if return_df: 
+#             final_df = pd.concat([final_df, enriched_regions_sec_cylce], axis=1)
         
-    if not show_cbar_for_each:
-        ## add at the bottom of the figure horizontally a cbar for the relative counts
-        cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
-        cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-        cbar.set_label(cbar_label, fontsize = 25)
-        cbar.ax.tick_params(labelsize=20)
+#     if not show_cbar_for_each:
+#         ## add at the bottom of the figure horizontally a cbar for the relative counts
+#         cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
+#         cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+#         cbar.set_label(cbar_label, fontsize = 25)
+#         cbar.ax.tick_params(labelsize=20)
 
-        # ## ad cbar also for coverage
-        if plot_coverage:
-            cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
-            cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-            cbar.set_label('read depth', fontsize = 25)
-            cbar.ax.tick_params(labelsize=20)
+#         # ## ad cbar also for coverage
+#         if plot_coverage:
+#             cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
+#             cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+#             cbar.set_label('read depth', fontsize = 25)
+#             cbar.ax.tick_params(labelsize=20)
 
-        if bias_per_pos: 
-            cbar_ax = fig.add_axes([0.45, 0.05, 0.15, 0.02])
-            cbar = fig.colorbar(axes[pltsize-2,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-            cbar.set_label('chance of codon mutation', fontsize = 25)
-            cbar.ax.tick_params(labelsize=20)
+#         if bias_per_pos: 
+#             cbar_ax = fig.add_axes([0.45, 0.05, 0.15, 0.02])
+#             cbar = fig.colorbar(axes[pltsize-2,0].collections[0], cax=cbar_ax, orientation = "horizontal")
+#             cbar.set_label('chance of codon mutation', fontsize = 25)
+#             cbar.ax.tick_params(labelsize=20)
     
-    if FigFolder:
-        name = "PACE_allSections_mutation_enrichment_comparison.pdf" if not show_only_pos else "PACE_allSections_mutation_enrichment_comparison_highMutPos.pdf"
-        plt.savefig(f"{FigFolder}/{name}", bbox_inches="tight")
-    plt.show()
-    if return_df:
-        if show_only_pos:
-            final_df.columns = position_labels 
-        final_df.index = plt_titles
-        return final_df
+#     if FigFolder:
+#         name = "PACE_allSections_mutation_enrichment_comparison.pdf" if not show_only_pos else "PACE_allSections_mutation_enrichment_comparison_highMutPos.pdf"
+#         plt.savefig(f"{FigFolder}/{name}", bbox_inches="tight")
+#     plt.show()
+#     if return_df:
+#         if show_only_pos:
+#             final_df.columns = position_labels 
+#         final_df.index = plt_titles
+#         return final_df
 
         
 
@@ -683,45 +683,45 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarcodeB,
 
     return FC_variants, ref, coverage_A, coverage_B
         
-def find_mutated_pos(read_dict, Barcode, Barcodes, Section, ref_gene, Primer_seq, Primer_out_of_triplets, codons, data_type = "AA", cyclename = "Mutagenesis", filter_treshold = 0.05, cov_filter_treshold=0):
-    """
-    find the positions with a mutation rate above the filter_treshold and the positions with a coverage below the cov_filter_treshold
+# def find_mutated_pos(read_dict, Barcode, Barcodes, Section, ref_gene, Primer_seq, Primer_out_of_triplets, codons, data_type = "AA", cyclename = "Mutagenesis", filter_treshold = 0.05, cov_filter_treshold=0):
+#     """
+#     find the positions with a mutation rate above the filter_treshold and the positions with a coverage below the cov_filter_treshold
 
-    read_dict = dictionary with the reads (following this naming convention: {cyclename}_{Barcode}_{Section}_R1:[read1_a, read2_a], {cyclename}_{Barcode}_{Section}_R2: [read1_b, read2_b],...})
-    Barcode = name of the barcode
-    Barcodes = dictionary with the barcode sequences
-    Section = name of the section
-    ref_gene = reference gene sequence
-    Primer_seq = dictionary with primer sequences
-    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts
-    codons = list of codons
-    data_type = "AA" or "DNA"
-    cyclename = name of the cycle
-    filter_treshold = treshold for the mutation rate
-    cov_filter_treshold = treshold for the coverage
-    """
+#     read_dict = dictionary with the reads (following this naming convention: {cyclename}_{Barcode}_{Section}_R1:[read1_a, read2_a], {cyclename}_{Barcode}_{Section}_R2: [read1_b, read2_b],...})
+#     Barcode = name of the barcode
+#     Barcodes = dictionary with the barcode sequences
+#     Section = name of the section
+#     ref_gene = reference gene sequence
+#     Primer_seq = dictionary with primer sequences
+#     Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts
+#     codons = list of codons
+#     data_type = "AA" or "DNA"
+#     cyclename = name of the cycle
+#     filter_treshold = treshold for the mutation rate
+#     cov_filter_treshold = treshold for the coverage
+#     """
 
-    ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
-    if data_type =="AA":
-        ref_prot_Section = translate_dna2aa(ref_seq_Section)
+#     ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+#     if data_type =="AA":
+#         ref_prot_Section = translate_dna2aa(ref_seq_Section)
 
-    tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
-    tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
+#     tripl_st = Primer_out_of_triplets[Section+"_fwd_primer"]
+#     tripl_end = Primer_out_of_triplets[Section+"_rev_primer"]
 
-    seq_variants = get_variants(read_dict[f"{cyclename}_{Barcode}_{Section}_R1"], read_dict[f"{cyclename}_{Barcode}_{Section}_R2"], catch_left=Barcodes[f"{Barcode}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Barcode}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_Section, ref_gene = ref_seq_Section, codons = codons)
-    seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
+#     seq_variants = get_variants(read_dict[f"{cyclename}_{Barcode}_{Section}_R1"], read_dict[f"{cyclename}_{Barcode}_{Section}_R2"], catch_left=Barcodes[f"{Barcode}_Fwd"]+Primer_seq[Section + "_fwd_primer"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Barcode}_Rev"]+Primer_seq[Section+"_rev_primer"][:tripl_end]), ref_prot = ref_prot_Section, ref_gene = ref_seq_Section, codons = codons)
+#     seq_variants = pd.DataFrame.from_dict(seq_variants[data_type])
 
-    coverages = seq_variants.sum()
-    ## rates 
-    seq_variants = seq_variants/seq_variants.sum(axis = 0)
+#     coverages = seq_variants.sum()
+#     ## rates 
+#     seq_variants = seq_variants/seq_variants.sum(axis = 0)
 
-    ref_seq = ref_seq_Section if data_type == "DNA" else ref_prot_Section
-    for idx, ref in enumerate(ref_seq): ## mask reference AAs/Nts and sum all others at each position --> to then compare the mutation rates
-        seq_variants.loc[ref, idx] = np.nan
+#     ref_seq = ref_seq_Section if data_type == "DNA" else ref_prot_Section
+#     for idx, ref in enumerate(ref_seq): ## mask reference AAs/Nts and sum all others at each position --> to then compare the mutation rates
+#         seq_variants.loc[ref, idx] = np.nan
 
-    ## combine mutation rates
-    seq_variants = seq_variants.sum(axis = 0)
-    low_cov_pos = coverages[coverages<cov_filter_treshold].index 
-    high_mut_positions = seq_variants[seq_variants > filter_treshold].index
+#     ## combine mutation rates
+#     seq_variants = seq_variants.sum(axis = 0)
+#     low_cov_pos = coverages[coverages<cov_filter_treshold].index 
+#     high_mut_positions = seq_variants[seq_variants > filter_treshold].index
 
-    return list(high_mut_positions), list(low_cov_pos)
+#     return list(high_mut_positions), list(low_cov_pos)

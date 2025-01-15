@@ -664,3 +664,52 @@ def mut_spectrum_codons(a_seq,
     mut_spec_perc = mut_spec_df/total_n_muts*100
 
     return mut_spec_df, mut_spec_perc
+
+
+def find_mutated_pos(read_dict, Bc, Barcodes, Section, ref_gene, Primer_seq, Primer_out_of_triplets, data_type = "AA", cyclename = "Mutagenesis", mut_rate_filter_treshold = 0.05, cov_filter_treshold=50):
+    """
+    find the positions with a mutation rate above the mut_rate_filter_treshold and the positions with a coverage above the cov_filter_treshold
+
+    read_dict = dictionary with the reads (following this naming convention: {cyclename}_{Barcode}_{Section}_R1:[read1_a, read2_a], {cyclename}_{Barcode}_{Section}_R2: [read1_b, read2_b],...})
+    Bc = name of the barcode
+    Barcodes = dictionary with the barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ...}
+    Section = name of the section of interest
+    ref_gene = reference gene sequence
+    Primer_seq = dictionary with primer sequences, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ...}
+    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ...}
+    data_type = "AA", "Codons" "DNA"
+    cyclename = name of the cycle
+    filter_treshold = treshold for the mutation rate
+    cov_filter_treshold = treshold for the coverage
+
+    returns: list of positions with mutation rate above mut_rate_filter_treshold, list of positions with coverage above cov_filter_treshold
+    """
+
+    dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
+    gather_variants = dataType_handler.get(data_type)
+    if not gather_variants: 
+        print("Data type not found!")
+        exit()
+
+    ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+    ref = ref_seq_Section if data_type != "AA" else translate_dna2aa(ref_seq_Section)
+
+    tripl_st = Primer_out_of_triplets[Section+"_fwd"]
+    tripl_end = Primer_out_of_triplets[Section+"_rev"]
+
+    a_seq = read_dict[f"{cyclename}_{Bc}_{Section}_R1"]
+    b_seq = read_dict[f"{cyclename}_{Bc}_{Section}_R2"]
+    seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end]), ref=ref)
+
+    seq_variants = pd.DataFrame.from_dict(seq_variants)
+
+    coverages = seq_variants.sum()
+
+    _, seq_variants_freq = mask_ref_in_variants_dict(ref_seq = ref, variant_df = seq_variants, data_type = data_type)
+
+    ## combine mutation rates
+    seq_variants_freq = seq_variants_freq.sum(axis = 0)
+    low_cov_pos = coverages[coverages<cov_filter_treshold].index 
+    high_mut_positions = seq_variants[seq_variants > mut_rate_filter_treshold].index
+
+    return list(high_mut_positions), list(low_cov_pos)
