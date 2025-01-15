@@ -470,16 +470,16 @@ def demultiplex_reads(a_seqs:list,
         return read_Dict 
 
 
-def mask_ref_in_variants_dict(ref_seq:str, 
-                              variant_df:pd.DataFrame,
-                              data_type:str,
-                              reverse:bool = False):
+def mask_ref_in_variants_df(variant_df:pd.DataFrame,
+                            ref_seq:str, 
+                            data_type:str,
+                            reverse:bool = False):
     """
     mask (set to np.nan) reference Nt/Codon/AA in dataframe with the counts of each Nt/Codon/AA at each position
 
+    variants_df: dataframe with the counts of each AA/Codon/Nt at each position
     ref_seq: reference DNA (if data_type = "DNA" or "Codon") or AA (if data_type = "AA") sequence
     data_type: "AA", "DNA" or "Codon"
-    variants_dict: dictionary with the counts of each AA/Codon/Nt at each position
     reverse: whether the reverse read only is used, i.e. the analysis focuses on the end of the reference sequence 
 
     returns: pd dataframe with the counts, pd.dataframe with relative frequencies
@@ -557,10 +557,8 @@ def mut_spectrum(a_seq,
     """
 
     ## reference nt : {sequenced (mutated) nt: count}
-    mut_spec = {'A': {'A':0, 'C':0, 'G':0, 'T':0},
-                'C': {'A':0, 'C':0, 'G':0, 'T':0},
-                'G': {'A':0, 'C':0, 'G':0, 'T':0},
-                'T': {'A':0, 'C':0, 'G':0, 'T':0}}
+    Nts = ['A', 'C', 'G', 'T']
+    mut_spec = {ref_nt: {nt:0 for nt in Nts} for ref_nt in Nts}
     
     for a_seq, b_seq in zip(a_seq, b_seq):
                 
@@ -571,8 +569,7 @@ def mut_spectrum(a_seq,
                 gene_a = a_seq[index:]
             
                 for idx, nt in enumerate(gene_a): 
-                    if reference_seq[idx] != nt:
-                        mut_spec[reference_seq[idx]][nt] += 1
+                    mut_spec[reference_seq[idx]][nt] += 1
                 
         if use_rev_read:        
 
@@ -585,14 +582,15 @@ def mut_spectrum(a_seq,
                 for idx, nt in enumerate(gene_b):
                     mut_spec[reference_seq[::-1][idx]][nt] += 1
     
-    mut_spec_df = pd.DataFrame.from_dict(mut_spec)
+    mut_spec_df = pd.DataFrame.from_dict(mut_spec, orient='index', dtype = float)
+
 
     if set_diag_to_NA:
         np.fill_diagonal(mut_spec_df.values, np.nan)
 
-    ## calculate mutagenic spectrum in percentage
-    #total_n_muts = sum([sum(value.values()) for value in mut_spec.values()])
-    #mut_spec_perc = {ref_base: {mut_base: round(val/total_n_muts*100, 3) for mut_base, val in value.items()} for ref_base, value in mut_spec.items()}
+    # ## calculate mutagenic spectrum in percentage
+    # total_n_muts = sum([sum(value.values()) for value in mut_spec.values()])
+    # mut_spec_perc = {ref_base: {mut_base: round(val/total_n_muts*100, 3) for mut_base, val in value.items()} for ref_base, value in mut_spec.items()}
     total_n_muts = mut_spec_df.sum().sum()
     mut_spec_perc = mut_spec_df/total_n_muts*100
 
@@ -654,7 +652,7 @@ def mut_spectrum_codons(a_seq,
                         mut_spec[reference_seq[::-1][idx]][b_codon] += 1
     
     
-    mut_spec_df = pd.DataFrame.from_dict(mut_spec)
+    mut_spec_df = pd.DataFrame.from_dict(mut_spec, orient = index, dtype = float)
 
     if set_diag_to_NA:
         np.fill_diagonal(mut_spec_df.values, np.nan)
@@ -705,11 +703,11 @@ def find_mutated_pos(read_dict, Bc, Barcodes, Section, ref_gene, Primer_seq, Pri
 
     coverages = seq_variants.sum()
 
-    _, seq_variants_freq = mask_ref_in_variants_dict(ref_seq = ref, variant_df = seq_variants, data_type = data_type)
+    _, seq_variants_freq = mask_ref_in_variants_df(ref_seq = ref, variant_df = seq_variants, data_type = data_type)
 
     ## combine mutation rates
     seq_variants_freq = seq_variants_freq.sum(axis = 0)
     low_cov_pos = coverages[coverages<cov_filter_treshold].index 
-    high_mut_positions = seq_variants[seq_variants > mut_rate_filter_treshold].index
+    high_mut_positions = seq_variants_freq[seq_variants_freq > mut_rate_filter_treshold].index
 
     return list(high_mut_positions), list(low_cov_pos)

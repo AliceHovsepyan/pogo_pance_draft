@@ -224,7 +224,7 @@ def compare_mut_enrichement(read_dict,
         seq_variants = pd.DataFrame.from_dict(seq_variants)
         coverage_df = pd.DataFrame(seq_variants.sum())
 
-        _ , variant_relative_freq = mask_ref_in_variants_dict(ref_seq=ref, variant_df=seq_variants, data_type=data_type)
+        _ , variant_relative_freq = mask_ref_in_variants_df(ref_seq=ref, variant_df=seq_variants, data_type=data_type)
 
         if show_only_pos:
             positions = show_only_pos[Section]
@@ -353,6 +353,7 @@ def compare_mut_enrichement_for_all(read_dict,
         tripl_st = Primer_out_of_triplets[Section+"_fwd"]
         tripl_end = Primer_out_of_triplets[Section+"_rev"]
         ref_section = find_reference_seq(ref_gene=ref_gene,Section = Section, Primer_seq=Primer_seq, Primer_out_of_triplets=Primer_out_of_triplets)
+        ref_gene_section = ref_section
 
         ref_section = ref_section if data_type != "AA" else translate_dna2aa(ref_section)
 
@@ -368,9 +369,7 @@ def compare_mut_enrichement_for_all(read_dict,
 
             coverage_df = pd.DataFrame(seq_variants.sum())
 
-            seq_variants = seq_variants/seq_variants.sum()
-
-            _ , variant_relative_freq = mask_ref_in_variants_dict(ref_seq=ref_section, variant_df=seq_variants, data_type=data_type)
+            _ , variant_relative_freq = mask_ref_in_variants_df(ref_seq=ref_section, variant_df=seq_variants, data_type=data_type)
             
             xlim_plot = xlim_plot if xlim_plot else variant_relative_freq.shape[1]
             variant_relative_freq = variant_relative_freq.iloc[:,:xlim_plot]
@@ -386,7 +385,7 @@ def compare_mut_enrichement_for_all(read_dict,
             if show_only_pos:
                 positions = show_only_pos[Section]
                 variant_relative_freq = variant_relative_freq.iloc[:,positions]
-                ref_section_start = ref_gene[Primer_out_of_triplets["S1_fwd"]:].index(ref_gene)//3
+                ref_section_start = ref_gene[Primer_out_of_triplets["S1_fwd"]:].index(ref_gene_section)//3
                 ref_labels = "".join([ref_section[pos] for pos in positions]) if not AApos_xlabelticks else [AApos_xlabelticks[ref_section_start:][pos] for pos in positions]
                 coverage_df = coverage_df.iloc[positions,:]
 
@@ -414,7 +413,6 @@ def compare_mut_enrichement_for_all(read_dict,
 
         if plot_coverage:
             sns.heatmap(coverage_df.T, ax=axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin=0, yticklabels=False, xticklabels=False, vmax=500, cbar=show_cbar_for_each)
-            axes[idx,s_idx].set_xticklabels(ref_section[:xlim_plot] if not AApos_xlabelticks else ref_section, rotation=1, fontsize=15 if data_type != "DNA" else 7)
         
         if bias_per_pos:
             spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)

@@ -725,3 +725,42 @@ def calculate_log_FC(read_dictionary, stepA, stepB, Section, BarcodeA, BarcodeB,
 #     high_mut_positions = seq_variants[seq_variants > filter_treshold].index
 
 #     return list(high_mut_positions), list(low_cov_pos)
+
+
+### calculate sum of single, double and triple mutants
+def gather_n_mutations(a_seq, b_seq, reference_seq, use_rev_read = True, use_forward_read = True, use_triplets = False):
+    """
+    returns a dictionary with the number of single, double, triple (...) mutants
+    a_seq, b_seq = list of sequences
+    """
+    mutation_dict = {}
+    catch_length = len(catch_left)    
+    
+    for a_seq, b_seq in zip(a_seq, b_seq):
+        
+        if use_forward_read and catch_left in a_seq:
+            index = a_seq.index(catch_left) + catch_length
+            gene_a = a_seq[index:]
+            if use_triplets: 
+                n_muts_a_seq = sum([reference_seq[i:i+3] != gene_a[i:i+3] for i in range(0,len(gene_a)//3*3,3)])
+            else: 
+                n_muts_a_seq = sum([reference_seq[i] != gene_a[i] for i in range(len(gene_a))])
+
+        else: n_muts_a_seq = 0
+            
+        if use_rev_read and dna_rev_comp(catch_right) in b_seq:
+                index = b_seq.index(dna_rev_comp(catch_right)) + catch_length
+                gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
+                gene_b = gene_b[::-1]
+                n_muts_b_seq = sum([reference_seq[::-1][i] != gene_b[i] for i in range(len(gene_b))])
+                
+        else: n_muts_b_seq = 0
+
+        n_muts = n_muts_a_seq + n_muts_b_seq
+
+        if n_muts in mutation_dict:
+            mutation_dict[n_muts] += 1
+        else:
+            mutation_dict[n_muts] = 1
+
+    return mutation_dict
