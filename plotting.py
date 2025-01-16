@@ -32,10 +32,11 @@ def coverage_plot(coverage_df,
     FigFolder: folder to save the figure
     """
 
-    plt.bar(coverage_df.columns, coverage_df)
+    sns.barplot(coverage_df)
     plt.xlabel("Position")
     plt.ylabel("Read counts")
     plt.title(f'{samplename} read depth')
+    plt.xticks(list(range(0,len(coverage_df), 50)))
     if FigFolder:
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
@@ -78,7 +79,8 @@ def plot_mut_rate_per_pos(data,
                           ref_seq,
                           data_type = "DNA",
                           samplename = "", 
-                          FigFolder = None):
+                          FigFolder = None,
+                          vmax = None):
     """
     plot the mutation rate per position 
 
@@ -96,9 +98,9 @@ def plot_mut_rate_per_pos(data,
         x_ticklabels = [ref for ref in ref_seq]
 
     plt.figure(figsize=(20,2))
-    sns.heatmap(pd.DataFrame(data).T, cmap = "viridis", cbar = True, cbar_kws = {"pad": 0.02, "label": "Mutation rate" },linecolor="black", xticklabels=x_ticklabels, yticklabels=False)
+    sns.heatmap(pd.DataFrame(data).T, cmap = "viridis", cbar = True, cbar_kws = {"pad": 0.02, "label": "Mutation rate" },linecolor="black", xticklabels=x_ticklabels, yticklabels=False, vmax=vmax)
     plt.xlabel("Position")
-    plt.xticks(rotation = 2,fontsize=6)
+    plt.xticks(rotation = 1 if data_type != "Codons" else 90,fontsize=6 if data_type != "DNA" else 3)
     plt.title(samplename)
     if FigFolder:
         if not os.path.exists(FigFolder):

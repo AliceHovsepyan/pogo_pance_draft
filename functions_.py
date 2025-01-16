@@ -272,7 +272,7 @@ def gather_codon_variants(a_seq,
 
 def gather_nt_variants(a_seq, 
                        b_seq,
-                       ref_seq, 
+                       ref, 
                        catch_left = "", 
                        catch_right = "", 
                        use_rev_read= True,
@@ -290,7 +290,7 @@ def gather_nt_variants(a_seq,
     """
 
     mutation_dict = {}
-    gene_len = len(ref_seq)
+    gene_len = len(ref)
     
     for idx in range(gene_len):
         mutation_dict[idx] = {'A':0, 'T':0, 'G':0, 'C':0}
@@ -484,7 +484,7 @@ def mask_ref_in_variants_df(variant_df:pd.DataFrame,
 
     returns: pd dataframe with the counts, pd.dataframe with relative frequencies
     """
-
+    variant_df = variant_df.copy()
     read_len = variant_df.shape[1]
     total_counts = variant_df.sum() # sum total counts before masking
     
@@ -623,7 +623,7 @@ def mut_spectrum_codons(a_seq,
     ## reference codon : {mutated codon: count}
     mut_spec = {ref_codon: {codon:0 for codon in codons} for ref_codon in codons}
 
-    ref_codons = [reference_seq[i:i+3] for i in range(0,len(reference_seq),3)]
+    ref_codons = [reference_seq[i:i+3] for i in range(0,len(reference_seq)//3*3,3)]
 
     for a_seq, b_seq in zip(a_seq, b_seq):
                 
@@ -649,10 +649,10 @@ def mut_spectrum_codons(a_seq,
                 
                 if len(gene_b_codons) > 0:
                     for idx, b_codon in enumerate(gene_b_codons):
-                        mut_spec[reference_seq[::-1][idx]][b_codon] += 1
+                        mut_spec[ref_codons[::-1][idx]][b_codon] += 1
     
     
-    mut_spec_df = pd.DataFrame.from_dict(mut_spec, orient = index, dtype = float)
+    mut_spec_df = pd.DataFrame.from_dict(mut_spec, orient = "index", dtype = float)
 
     if set_diag_to_NA:
         np.fill_diagonal(mut_spec_df.values, np.nan)
@@ -711,3 +711,93 @@ def find_mutated_pos(read_dict, Bc, Barcodes, Section, ref_gene, Primer_seq, Pri
     high_mut_positions = seq_variants_freq[seq_variants_freq > mut_rate_filter_treshold].index
 
     return list(high_mut_positions), list(low_cov_pos)
+
+
+### calculate sum of single, double and triple mutants
+def gather_n_mutations(a_seq, 
+                       b_seq, 
+                       reference_seq, 
+                       catch_left = "", 
+                       catch_right = "", 
+                       use_rev_read = True, 
+                       use_forward_read = True, 
+                       use_triplets = False, 
+                       return_seqs_pos = False):
+    """
+    create a dictionary with the number of single, double, triple (...) mutants, also a dict with the seqs and the positions of the mutations (if return_seqs_pos = True)
+    !! positions are based on the reference sequence (i.e. does not match location in (reverse) b_reads directly)
+    !! if use_triplets = True, the positions refer to the codons (AAs), otherwise to the nucleotides
+
+    a_seq, b_seq: list of sequences
+    reference_seq: reference DNA sequence
+    catch_left, catch_right: start (end) of the sequence in the forward read (R1) (reverse read (R2)), e.g. Barcodes (will not be included in the analysis)
+    use_forward_read, use_rev_read: whether or not to include the foward read (R1) and/or reverse read (R2) in the analysis (default: True)
+    use_triplets: if True, the analysis is done on codons, otherwise (default) on nucleotides 
+    return_seq_pos: if True, also return the sequences and the positions of the mutations as as second dictionary
+
+    returns: dictionary with the number of single, double, triple (...) mutants {n_muts : count}, if return_seqs_pos = True, also a dictionary with the sequences and the positions of the mutations {n_muts : [(aSeq1, bSeq1, mut_pos_aSeq1, mut_pos_bSeq1), ...]}
+    """
+    mutation_dict = {}  
+    if return_seqs_pos: 
+        mutation_seq_dict = {}
+
+    ref_codons = [reference_seq[i:i+3] for i in range(0,len(reference_seq)//3*3,3)]  
+    ref_len = len(reference_seq) if not use_triplets else len(ref_codons)
+    
+    for a_seq, b_seq in zip(a_seq, b_seq):
+        
+        if use_forward_read and catch_left in a_seq:
+            index = a_seq.index(catch_left) + len(catch_left)
+            gene_a = a_seq[index:]
+
+            if use_triplets: 
+                muts_a_seq = [reference_seq[i:i+3] != gene_a[i:i+3] for i in range(0,len(gene_a)//3*3,3)]
+            else: 
+                muts_a_seq = [reference_seq[i] != gene_a[i] for i in range(len(gene_a)//3*3)]
+
+            n_muts_a_seq = sum(muts_a_seq)  # count number of mutations
+            muts_pos_a = [pos for pos, mut_exists in enumerate(muts_a_seq) if mut_exists] # get positions of mutations
+
+        else: 
+            n_muts_a_seq = 0
+            gene_a = ""
+            muts_pos_a = []
+            
+        if use_rev_read and dna_rev_comp(catch_right) in b_seq:
+                index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
+                gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index]) # exclude last codon if not complete
+                    
+                if use_triplets:
+                    gene_b_codons = [gene_b[i:i+3] for i in range(0,len(gene_b),3)]
+                    muts_b_seq = [ref_codons[::-1][i] != gene_b_codons[::-1][i] for i in range(len(gene_b_codons))] # start from the end because different len of ref and b_seq
+                else:
+                    muts_b_seq = [reference_seq[::-1][i] != gene_b[::-1][i] for i in range(len(gene_b))]
+                
+                n_muts_b_seq = sum(muts_b_seq)  # count number of mutations
+                muts_pos_b = [ref_len-pos-1 for pos, mut_exists in enumerate(muts_b_seq) if mut_exists] ## get positions of mutations, based on the reference (not the reverse reads!), -1 because of 0-based index
+
+        else: 
+            n_muts_b_seq = 0
+            muts_pos_b = []
+            gene_b = ""
+
+        n_muts = n_muts_a_seq + n_muts_b_seq
+
+        if (catch_left in a_seq) or (use_rev_read and (catch_right) in b_seq): ## add to dictionary if at least one read contains the catch sequence 
+            if n_muts in mutation_dict:
+                mutation_dict[n_muts] += 1
+                if return_seqs_pos: 
+                    mutation_seq_dict[n_muts].append((gene_a, b_seq, muts_pos_a, muts_pos_b))
+                
+            else:
+                mutation_dict[n_muts] = 1
+                if return_seqs_pos: 
+                    mutation_seq_dict[n_muts] = [(gene_a, gene_b, muts_pos_a, muts_pos_b)]
+
+    if return_seqs_pos: 
+        return mutation_dict, mutation_seq_dict
+    else: 
+        return mutation_dict
+    
+    
+    
