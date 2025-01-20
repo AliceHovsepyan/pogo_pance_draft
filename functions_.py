@@ -106,7 +106,8 @@ def read_filtering(a_seqs,
                    ref, 
                    catch_left = "", 
                    catch_right = "", 
-                   n_mut_treshold = 10 ): 
+                   n_mut_treshold = 10, 
+                   filter_for_read_len = None): 
     """
     filter out reads with more than n_mut_treshold mutations to exclude reads with seq errors/indels that lead to frameshifts
     
@@ -115,12 +116,21 @@ def read_filtering(a_seqs,
     ref_gene: reference DNA sequence
     catch_left, catch_right: start (end) of the sequence in the forward read (R1) (reverse read (R2)), e.g. Barcodes (will not be included in the analysis)
     n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 10)
+    filter_for_read_len: tuple (threshold a_reads, treshold b_reads) to filter out reads with a len(read)<treshold (default: None, i.e. no filtering for read length)
 
     returns: lists of filtered forward reads (R1), filtered reverse reads (R2)
     """
 
     print("total forward reads before filtering", sum([a_Seq != "" for a_Seq in a_seqs]))
     print("total reverse reads before filtering", sum([b_Seq != "" for b_Seq in b_seqs]))
+
+    if filter_for_read_len:
+        if type(filter_for_read_len) != tuple:
+            print("filter_for_read_len should be a tuple (threshold a_reads, threshold b_reads)")
+            raise ValueError
+        print("filtering for read length", filter_for_read_len)
+        a_len_T = filter_for_read_len[0]
+        b_len_T = filter_for_read_len[1]
 
     a_sequences = []
     b_sequences = []
@@ -129,28 +139,36 @@ def read_filtering(a_seqs,
             
             if catch_left in a_seq:
 
-                index = a_seq.index(catch_left) + len(catch_left)
-                gene_a = a_seq[index:]
-                total_muts_a = sum([ref[idx] != gene_a[idx] for idx in range(len(gene_a))])
+                if filter_for_read_len and len(a_seq) < a_len_T:
+                    a_sequences.append("")
+                
+                else:
+                    index = a_seq.index(catch_left) + len(catch_left)
+                    gene_a = a_seq[index:]
+                    total_muts_a = sum([ref[idx] != gene_a[idx] for idx in range(len(gene_a))])
 
-                if total_muts_a <= n_mut_treshold: 
-                    a_sequences.append(a_seq)
-                else: 
-                    a_sequences.append("") #append by empty string to keep the index of the reads in the list, i.e. R1 and R2 can be matched later
+                    if total_muts_a <= n_mut_treshold: 
+                        a_sequences.append(a_seq)
+                    else: 
+                        a_sequences.append("") #append by empty string to keep the index of the reads in the list, i.e. R1 and R2 can be matched later
             else: 
                 a_sequences.append("")
                      
             if dna_rev_comp(catch_right) in b_seq:
-
-                index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
-                gene_b = dna_rev_comp(b_seq[index:])
-                #gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
-                total_muts_b = sum([ref[::-1][idx] != gene_b[::-1][idx] for idx in range(len(gene_b))])
-
-                if total_muts_b <= n_mut_treshold:
-                    b_sequences.append(b_seq)
-                else:
+                
+                if filter_for_read_len and len(b_seq) < b_len_T:
                     b_sequences.append("")
+
+                else:
+                    index = b_seq.index(dna_rev_comp(catch_right)) + len(catch_right)
+                    gene_b = dna_rev_comp(b_seq[index:])
+                    #gene_b = dna_rev_comp(b_seq[index:(len(b_seq)-index)//3*3+index])
+                    total_muts_b = sum([ref[::-1][idx] != gene_b[::-1][idx] for idx in range(len(gene_b))])
+
+                    if total_muts_b <= n_mut_treshold:
+                        b_sequences.append(b_seq)
+                    else:
+                        b_sequences.append("")
             else: 
                 b_sequences.append("")
 
@@ -331,18 +349,18 @@ def process_reads(ref_prot,
                   arbitrary_cutoff_a = False, 
                   arbitrary_cutoff_b = False, 
                   quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], 
-                  filter_for_n_mut = True, 
-                  n_mut_treshold = 10):
+                  n_mut_treshold = 10,
+                  filter_for_read_len = None):
     """
     process reads for given variants, i.e. generate dictionaries with the counts of each amino acid, codon and nucleotide at each position from fastq-files
 
     variants: list of variants to process (variant names of the fastq files, which follow this structure {variant}_R1_001.fastq and {variant}_R2_001.fastq), if None, all variants in the fastq folder are processed
     catch_left, catch_right: start (end) of the sequence in the forward read (R1) (reverse read (R2)), e.g. Barcodes (will not be included in the analysis)
-    use_forward_read, use_rev_read: whether or not to include the foward read (R1) and/or reverse read (R2) in the analysis (default: True)
+    use_forward_read, use_rev_read: whether or not to include the forward read (R1) and/or reverse read (R2) in the analysis (default: True)
     arbitrary_cutoff_a, arbitrary_cutoff_b: where to cut off the forward (rev) sequence ( = maximum length of the reads, otherwise the cutoff is determined by the quality score = 1% (default) error rate)
     quality_score: list of quality scores, at which the reads should be aborted (default: 1% error rate)
-    filter_for_n_mut: whether or not to filter for reads with more than n_mut_treshold mutations (default: True), thereby reads that contain frameshifts due to sequencing errors should be excluded
-    n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 10), only used if filter_for_n_mut = True
+    n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 10), if None, no filtering for n_mut
+    filter_for_read_len: tuple (threshold a_reads, treshold b_reads) to filter out reads with a len(read)<treshold (default: None, i.e. no filtering for read length)
 
     returns: dict with the counts of each amino acid, codon and nucleotide at each position for each variant
     """
@@ -362,8 +380,8 @@ def process_reads(ref_prot,
             f1 = name
             a_seq, b_seq = read_sequences(f1, arbitrary_cutoff_a=arbitrary_cutoff_a, arbitrary_cutoff_b=arbitrary_cutoff_b, catch_left=catch_left, catch_right=catch_right, quality_score=quality_score)
 
-            if filter_for_n_mut:
-                a_seq, b_seq = read_filtering(a_seq, b_seq, ref=ref_gene, catch_left=catch_left, catch_right=catch_right, n_mut_treshold=n_mut_treshold)
+            if n_mut_treshold:
+                a_seq, b_seq = read_filtering(a_seq, b_seq, ref=ref_gene, catch_left=catch_left, catch_right=catch_right, n_mut_treshold=n_mut_treshold, filter_for_read_len=filter_for_read_len)
 
             variants_dict[name] = {}
             variants_dict[name] = get_variants(a_seq, b_seq, ref_prot = ref_prot, ref_gene = ref_gene, use_rev_read=use_rev_read, use_forward_read=use_forward_read, catch_left=catch_left, catch_right=catch_right)
