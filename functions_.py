@@ -422,7 +422,9 @@ def demultiplex_reads(a_seqs:list,
                       used_Barcodes:list, 
                       Sections:list, 
                       max_mismatch_primerseq:int = 3, 
-                      filter_for_n_mut:bool = True, 
+                      filter_for_n_mut:bool = True,
+                      filter_for_read_len:bool = False,
+                      read_len_treshold:int = 50,
                       n_mut_treshold:int = 20, 
                       a_ids:list = None, 
                       b_ids:list = None):
@@ -438,6 +440,8 @@ def demultiplex_reads(a_seqs:list,
     max_mismatch_primerseq: maximum number of mismatches allowed in the primer sequences (default: 3)
     filter_for_n_mut: whether or not to filter for reads with more than n_mut_treshold mutations (default: True), thereby reads that contain frameshifts due to sequencing errors should be excluded
     n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 20), only used if filter_for_n_mut = True
+    filter_for_read_len: whether or not to filter for read length (default: False), thereby reads that are shorter than read_len_treshold are excluded
+    read_len_treshold: minimum read length (default: 50), only used if filter_for_read_len = True
     a_ids, b_ids: list of ids for the forward and reverse reads (default: None), if None, no ids are returned
 
     returns: dictionary with the reads for each sample and section, optionally also the ids
@@ -472,8 +476,8 @@ def demultiplex_reads(a_seqs:list,
 
             ref_seq_Section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd"]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev"]))+len(Primer_seq[Section+"_rev"])]
 
-            if filter_for_n_mut:
-                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]), n_mut_treshold = n_mut_treshold, ref = ref_seq_Section)
+            if filter_for_n_mut or filter_for_read_len:
+                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]), n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
