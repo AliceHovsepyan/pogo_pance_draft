@@ -31,7 +31,7 @@ def find_(string,
     try: 
         ind = min([index for index in indexes if index != -1])
     except:
-        ind = 250
+        ind = 400
     return ind
 
 def read_sequences(variant, 
