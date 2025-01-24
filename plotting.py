@@ -3,20 +3,13 @@ from Bio.SeqIO import QualityIO
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.cm as cm
-import gzip
-import glob
-import re
 from DMS_utils import dna_rev_comp, translate_dna2aa
-import pysam
 import pandas as pd
 import seaborn as sns
 import pickle as pkl
 import matplotlib.colors as mcolors
-from scipy import stats
 import os.path
 from matplotlib.lines import Line2D
-import json
-import shutil
 import matplotlib.gridspec as gridspec
 from functions_ import *
 
@@ -180,7 +173,8 @@ def compare_mut_enrichement(read_dict,
                             color_above_vmax_orange = True, 
                             cbar_label = "mutation rate", 
                             show_only_pos = None, 
-                            fig_size = (20,25)):
+                            fig_size = (20,25),
+                            include_BCs= False):
     """
     compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
 
@@ -197,6 +191,8 @@ def compare_mut_enrichement(read_dict,
     plot_coverage: if True, coverage is plotted below the mutation enrichment heatmap
     color_above_vmax_orange: if True, values above vmax are colored orange
     show_only_pos: dictionary that contains for each section the positions to show in the heatmap, following the structure {S1: pos, S2: pos, ...}
+    include_BCs: whether or not the reads include BC seqs (then, the name should include the BCx name also)
+
     """
 
     dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
@@ -217,11 +213,18 @@ def compare_mut_enrichement(read_dict,
 
     for idx, sample in enumerate(samples):
 
-        Bc = sample[sample.index("BC"):sample.index("BC")+3]
+        if include_BCs: 
+            Bc = sample[sample.index("BC"):sample.index("BC")+3]
+            catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
+            catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
+        else: 
+            catch_left = Primer_seq[Section + "_fwd"][:tripl_st]
+            catch_right = dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+
         a_seq = read_dict[sample + f"_{Section}_R1"]
         b_seq = read_dict[sample+ f"_{Section}_R2"]
 
-        seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st], catch_right=dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end]), ref=ref, use_forward_read=use_forward_read, use_rev_read=use_rev_read)
+        seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left, catch_right=catch_right, ref=ref, use_forward_read=use_forward_read, use_rev_read=use_rev_read)
 
         seq_variants = pd.DataFrame.from_dict(seq_variants)
         coverage_df = pd.DataFrame(seq_variants.sum())
@@ -294,7 +297,9 @@ def compare_mut_enrichement_for_all(read_dict,
                                     AApos_xlabelticks = None, 
                                     fig_size = None, 
                                     bias_per_pos = None, 
-                                    return_df = False):
+                                    return_df = False, 
+                                    include_BCs = False, 
+                                    plt_section_ratios = None):
     """
     compare mutation enrichment for all sections as heatmaps with coverages and biases plotted below
 
@@ -314,6 +319,7 @@ def compare_mut_enrichement_for_all(read_dict,
     show_only_pos: dictionary with the positions to show for each section
     bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
     return_df: if True, df with the mutation rates is returned (if show_only_pos is set, only the positions of interest are returned, if not, a dict with df per section is returned)
+    include_BCs: whether or not the reads include BC seqs (then, the name should include the BCx name also)
     """
     dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
     gather_variants = dataType_handler.get(data_type)
@@ -332,20 +338,26 @@ def compare_mut_enrichement_for_all(read_dict,
             final_df = {}
 
     if show_only_pos:
-        fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
-        gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=[len(show_only_pos[s]) for s in Sections])
-        axes = {}
+        width_ratios = [len(show_only_pos[s]) for s in Sections]
+    elif plt_section_ratios:
+        width_ratios =  plt_section_ratios
+    else: 
+        width_ratios = [1]*len(Sections)
 
-        for i in range(pltsize):
-            for j in range(len(Sections)):
-                ax = fig.add_subplot(gs[i, j])
-                axes[(i, j)] = ax
+    fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
+    gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=width_ratios)
+    axes = {}
 
-        fig.subplots_adjust(wspace=0.03)
+    for i in range(pltsize):
+        for j in range(len(Sections)):
+            ax = fig.add_subplot(gs[i, j])
+            axes[(i, j)] = ax
+
+    fig.subplots_adjust(wspace=0.03)
         
-    else:
-        fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
-        fig.subplots_adjust(wspace=0.03)
+    # else:
+    #     fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
+    #     fig.subplots_adjust(wspace=0.03)
 
     for s_idx, Section in enumerate(Sections):
 
@@ -360,12 +372,19 @@ def compare_mut_enrichement_for_all(read_dict,
         ref_section = ref_section if data_type != "AA" else translate_dna2aa(ref_section)
 
         for idx, sample in enumerate(samples):
+            
+            if include_BCs ==True: 
+                Bc = sample[sample.index("BC"):sample.index("BC")+3]
+                catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
+                catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
+            else: 
+                catch_left = Primer_seq[Section + "_fwd"][:tripl_st]
+                catch_right = dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
 
-            Bc = sample[sample.index("BC"):sample.index("BC")+3]
             a_seq = read_dict[sample+ f"_{Section}_R1"]
             b_seq = read_dict[sample + f"_{Section}_R2"]
 
-            seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st], catch_right=dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end]), ref=ref_section, use_forward_read=True, use_rev_read=True)
+            seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left, catch_right=catch_right, ref=ref_section, use_forward_read=True, use_rev_read=True)
 
             seq_variants = pd.DataFrame.from_dict(seq_variants)
 

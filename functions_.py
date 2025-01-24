@@ -427,7 +427,8 @@ def demultiplex_reads(a_seqs:list,
                       read_len_treshold:int = 50,
                       n_mut_treshold:int = 20, 
                       a_ids:list = None, 
-                      b_ids:list = None):
+                      b_ids:list = None, 
+                      cut_BC_seq = True):
     """
     demultiplex reads from fastq-files, if different samples were pooled and the region of interest was divided into sections for sequencing
     
@@ -443,6 +444,7 @@ def demultiplex_reads(a_seqs:list,
     filter_for_read_len: whether or not to filter for read length (default: False), thereby reads that are shorter than read_len_treshold are excluded
     read_len_treshold: minimum read length (default: 50), only used if filter_for_read_len = True
     a_ids, b_ids: list of ids for the forward and reverse reads (default: None), if None, no ids are returned
+    cut_BC_seq: whether or not to cut the BC seq from the reads 
 
     returns: dictionary with the reads for each sample and section, optionally also the ids
     """
@@ -478,6 +480,10 @@ def demultiplex_reads(a_seqs:list,
 
             if filter_for_n_mut or filter_for_read_len:
                 a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]), n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
+
+            if cut_BC_seq: 
+                a_seq_Bc_Sec = [a[len(Barcodes[Barcode + "_fwd"]):] for a in a_seq_Bc_Sec if len(a)>=len(Barcodes[Barcode + "_fwd"])]
+                b_seq_Bc_Sec = [b[len(Barcodes[Barcode + "_rev"]):] for b in b_seq_Bc_Sec if len(b)>=len(Barcodes[Barcode + "_rev"])]
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
@@ -686,13 +692,23 @@ def mut_spectrum_codons(a_seq,
     return mut_spec_df, mut_spec_perc
 
 
-def find_mutated_pos(read_dict, Bc, Barcodes, Section, ref_gene, Primer_seq, Primer_out_of_triplets, data_type = "AA", cyclename = "Mutagenesis", mut_rate_filter_treshold = 0.05, cov_filter_treshold=50):
+def find_mutated_pos(read_dict,
+                    Section, 
+                    ref_gene, 
+                    Primer_seq, 
+                    Primer_out_of_triplets, 
+                    Bc = None, 
+                    Barcodes = None, 
+                    data_type = "AA", 
+                    cyclename = "Mutagenesis", 
+                    mut_rate_filter_treshold = 0.05, 
+                    cov_filter_treshold=50):
     """
     find the positions with a mutation rate above the mut_rate_filter_treshold and the positions with a coverage above the cov_filter_treshold
 
     read_dict = dictionary with the reads (following this naming convention: {cyclename}_{Barcode}_{Section}_R1:[read1_a, read2_a], {cyclename}_{Barcode}_{Section}_R2: [read1_b, read2_b],...})
-    Bc = name of the barcode
-    Barcodes = dictionary with the barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ...}
+    Bc = name of the barcode, if None, it is expected that the read does not include the BC seq anymore
+    Barcodes = dictionary with the barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ...}, can be None, if the reads do not include the BC seq anymore (e.g. by calling "cut_BC_seq" during demultiplexing)
     Section = name of the section of interest
     ref_gene = reference gene sequence
     Primer_seq = dictionary with primer sequences, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ...}
@@ -717,9 +733,17 @@ def find_mutated_pos(read_dict, Bc, Barcodes, Section, ref_gene, Primer_seq, Pri
     tripl_st = Primer_out_of_triplets[Section+"_fwd"]
     tripl_end = Primer_out_of_triplets[Section+"_rev"]
 
-    a_seq = read_dict[f"{cyclename}_{Bc}_{Section}_R1"]
-    b_seq = read_dict[f"{cyclename}_{Bc}_{Section}_R2"]
-    seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st],catch_right=dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end]), ref=ref)
+    a_seq = read_dict[f"{cyclename}_{Section}_R1"]
+    b_seq = read_dict[f"{cyclename}_{Section}_R2"]
+    
+    if Bc: 
+        catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
+        catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
+    else: 
+        catch_left = ""+Primer_seq[Section + "_fwd"][:tripl_st]
+        catch_right = ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+
+    seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left,catch_right=catch_right, ref=ref)
 
     seq_variants = pd.DataFrame.from_dict(seq_variants)
 
