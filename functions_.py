@@ -211,7 +211,7 @@ def gather_AA_variants(a_seq,
         if use_forward_read:
 
             if catch_left in a_seq:
-
+                
                 index = a_seq.index(catch_left) + len(catch_left)
                 gene_a = a_seq[index:]
                 tr_a = translate_dna2aa(gene_a)
@@ -482,8 +482,8 @@ def demultiplex_reads(a_seqs:list,
                 a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]), n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
             if cut_BC_seq: 
-                a_seq_Bc_Sec = [a[len(Barcodes[Barcode + "_fwd"]):] for a in a_seq_Bc_Sec if len(a)>=len(Barcodes[Barcode + "_fwd"])]
-                b_seq_Bc_Sec = [b[len(Barcodes[Barcode + "_rev"]):] for b in b_seq_Bc_Sec if len(b)>=len(Barcodes[Barcode + "_rev"])]
+                a_seq_Bc_Sec = [a[len(Barcodes[Barcode + "_fwd"]):] if len(a)>=len(Barcodes[Barcode + "_fwd"]) else "" for a in a_seq_Bc_Sec]
+                b_seq_Bc_Sec = [b[len(Barcodes[Barcode + "_rev"]):] if len(b)>=len(Barcodes[Barcode + "_rev"]) else "" for b in b_seq_Bc_Sec]
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec

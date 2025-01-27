@@ -467,13 +467,13 @@ def compare_mut_enrichement_for_all(read_dict,
 
         ## add cbar also for coverage and biases
         if plot_coverage:
-            cbar_ax = fig.add_axes([0.29, 0.05, 0.15, 0.02])
+            cbar_ax = fig.add_axes([0.32, 0.05, 0.15, 0.02])
             cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
             cbar.set_label('read depth', fontsize = 25)
             cbar.ax.tick_params(labelsize=20)
 
         if bias_per_pos: 
-            cbar_ax = fig.add_axes([0.45, 0.05, 0.15, 0.02])
+            cbar_ax = fig.add_axes([0.51, 0.05, 0.15, 0.02])
             cbar = fig.colorbar(axes[pltsize-2,0].collections[0], cax=cbar_ax, orientation = "horizontal")
             cbar.set_label('chance of codon mutation', fontsize = 25)
             cbar.ax.tick_params(labelsize=20)
