@@ -418,14 +418,14 @@ def compare_mut_enrichement_for_all(read_dict,
                 if return_df and idx == 0:
                     position_labels.extend(ref_labels)
             
-            sns.heatmap(variant_relative_freq, annot=False, ax=axes[idx,s_idx], linecolor="black", cmap=my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02}, vmin=vmin,vmax = vmax, xticklabels=False if idx != len(samples)-1 else True, yticklabels=True if combine_mut_rates == False else False, cbar=show_cbar_for_each )
+            sns.heatmap(variant_relative_freq, annot=False, ax=axes[idx,s_idx], linecolor="black", cmap=my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02}, vmin=vmin,vmax = vmax, xticklabels=False if idx != len(samples)-1 else True, yticklabels=True if combine_mut_rates == False and s_idx == 0 else False, cbar=show_cbar_for_each )
 
             for _, spine in axes[idx,s_idx].spines.items():
                 spine.set_visible(True)
                 spine.set_linewidth(2)
             axes[idx,s_idx].set_yticklabels(axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
             
-            if show_plttitles: 
+            if show_plttitles and s_idx==0: 
                 axes[idx,s_idx].set_title(plt_titles[idx], fontsize=15)
             
             axes[idx,s_idx].set_facecolor('gray')
@@ -495,7 +495,7 @@ def compare_mut_enrichement_for_all(read_dict,
     plt.clf()
 
     if return_df:
-        if show_only_pos:
+        if show_only_pos and combine_mut_rates:
             final_df.columns = position_labels 
             final_df.index = plt_titles
         return final_df
