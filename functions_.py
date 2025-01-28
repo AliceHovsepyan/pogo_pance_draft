@@ -419,6 +419,7 @@ def demultiplex_reads(a_seqs:list,
                       ref_gene:str, 
                       Barcodes:dict, 
                       Primer_seq:dict, 
+                      Primer_out_of_triplets:dict,
                       used_Barcodes:list, 
                       Sections:list, 
                       max_mismatch_primerseq:int = 3, 
@@ -428,7 +429,8 @@ def demultiplex_reads(a_seqs:list,
                       n_mut_treshold:int = 20, 
                       a_ids:list = None, 
                       b_ids:list = None, 
-                      cut_BC_seq = True):
+                      cut_BC_seq = True,
+                      cut_primer_start=True,):
     """
     demultiplex reads from fastq-files, if different samples were pooled and the region of interest was divided into sections for sequencing
     
@@ -436,6 +438,7 @@ def demultiplex_reads(a_seqs:list,
     ref_gene: reference DNA sequence
     Barcodes: dictionary with the forward and reverse Barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ... }
     Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
+    Primer_out_of_triplets: should be a dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... } 
     used_Barcodes: list of Barcodes from the Barcodes dictionary that were used for the sequencing (should match with names in the Barcodes dict, e.g. BC1, BC2, ...)
     Sections: list of sections that were sequenced (should match with names in the Primer_seq dict, e.g. S1, S2, ...)
     max_mismatch_primerseq: maximum number of mismatches allowed in the primer sequences (default: 3)
@@ -445,6 +448,7 @@ def demultiplex_reads(a_seqs:list,
     read_len_treshold: minimum read length (default: 50), only used if filter_for_read_len = True
     a_ids, b_ids: list of ids for the forward and reverse reads (default: None), if None, no ids are returned
     cut_BC_seq: whether or not to cut the BC seq from the reads 
+    cut_primer_start: used if cut_BC_seq=True, then, if True, the Nt number specified in Primer_out_of_triplets is additionally cut from the sequence start
 
     returns: dictionary with the reads for each sample and section, optionally also the ids
     """
@@ -476,14 +480,25 @@ def demultiplex_reads(a_seqs:list,
                 a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
                 b_ids_Bc_Sec = [b_ids[i].split(" ")[0]  for i in indexes]
 
-            ref_seq_Section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd"]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev"]))+len(Primer_seq[Section+"_rev"])]
+            ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+    
+            if cut_BC_seq: 
+                cutoff_a = len(Barcodes[Barcode + "_fwd"]) if not cut_primer_start else len(Barcodes[Barcode + "_fwd"]) + Primer_out_of_triplets[Section + "_fwd"]
+                cutoff_b = len(Barcodes[Barcode + "_rev"]) if not cut_primer_start else len(Barcodes[Barcode + "_rev"]) + Primer_out_of_triplets[Section + "_rev"]
+
+                a_seq_Bc_Sec = [a[cutoff_a:] if len(a)>=cutoff_a else "" for a in a_seq_Bc_Sec]
+                b_seq_Bc_Sec = [b[cutoff_b:] if len(b)>=cutoff_b else "" for b in b_seq_Bc_Sec]
 
             if filter_for_n_mut or filter_for_read_len:
-                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left = Barcodes[Barcode + "_fwd"], catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]), n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
+                if cut_BC_seq:
+                    catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
+                    catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+                else:
+                    catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
+                    catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+                
+                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
-            if cut_BC_seq: 
-                a_seq_Bc_Sec = [a[len(Barcodes[Barcode + "_fwd"]):] if len(a)>=len(Barcodes[Barcode + "_fwd"]) else "" for a in a_seq_Bc_Sec]
-                b_seq_Bc_Sec = [b[len(Barcodes[Barcode + "_rev"]):] if len(b)>=len(Barcodes[Barcode + "_rev"]) else "" for b in b_seq_Bc_Sec]
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
@@ -698,6 +713,7 @@ def find_mutated_pos(read_dict,
                     Primer_seq, 
                     Primer_out_of_triplets, 
                     Bc = None, 
+                    seq_include_Primer_start = False,
                     Barcodes = None, 
                     data_type = "AA", 
                     cyclename = "Mutagenesis", 
@@ -708,6 +724,7 @@ def find_mutated_pos(read_dict,
 
     read_dict = dictionary with the reads (following this naming convention: {cyclename}_{Barcode}_{Section}_R1:[read1_a, read2_a], {cyclename}_{Barcode}_{Section}_R2: [read1_b, read2_b],...})
     Bc = name of the barcode, if None, it is expected that the read does not include the BC seq anymore
+    seq_include_Primer_start = whether or not the sequence includes the primer start, i.e. whether correction for triplet starts already happended during multiplexing (default: False), only used if Bc = None
     Barcodes = dictionary with the barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ...}, can be None, if the reads do not include the BC seq anymore (e.g. by calling "cut_BC_seq" during demultiplexing)
     Section = name of the section of interest
     ref_gene = reference gene sequence
@@ -740,8 +757,8 @@ def find_mutated_pos(read_dict,
         catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
         catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
     else: 
-        catch_left = ""+Primer_seq[Section + "_fwd"][:tripl_st]
-        catch_right = ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+        catch_left = "" if not seq_include_Primer_start else ""+Primer_seq[Section + "_fwd"][:tripl_st] ## if the primer start was already cut from the sequence, the catch_left is empty, i.e. the whole sequence is used for further analysis (the sequence was already corrected for triplet start)
+        catch_right = "" if not seq_include_Primer_start else ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
 
     seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left,catch_right=catch_right, ref=ref)
 

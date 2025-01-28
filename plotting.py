@@ -174,7 +174,8 @@ def compare_mut_enrichement(read_dict,
                             cbar_label = "mutation rate", 
                             show_only_pos = None, 
                             fig_size = (20,25),
-                            include_BCs= False):
+                            include_BCs= False,
+                            seq_include_Primer_start = False):
     """
     compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
 
@@ -192,6 +193,7 @@ def compare_mut_enrichement(read_dict,
     color_above_vmax_orange: if True, values above vmax are colored orange
     show_only_pos: dictionary that contains for each section the positions to show in the heatmap, following the structure {S1: pos, S2: pos, ...}
     include_BCs: whether or not the reads include BC seqs (then, the name should include the BCx name also)
+    seq_include_Primer_start = whether or not the sequence includes the primer start, i.e. whether correction for triplet starts already happended during multiplexing (default: False), only used if include_BCs is False
 
     """
 
@@ -218,8 +220,8 @@ def compare_mut_enrichement(read_dict,
             catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
             catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
         else: 
-            catch_left = Primer_seq[Section + "_fwd"][:tripl_st]
-            catch_right = dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+            catch_left = "" if not seq_include_Primer_start else ""+Primer_seq[Section + "_fwd"][:tripl_st] ## if the primer start was already cut from the sequence, the catch_left is empty, i.e. the whole sequence is used for further analysis (the sequence was already corrected for triplet start)
+            catch_right = "" if not seq_include_Primer_start else ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
 
         a_seq = read_dict[sample + f"_{Section}_R1"]
         b_seq = read_dict[sample+ f"_{Section}_R2"]
@@ -298,7 +300,8 @@ def compare_mut_enrichement_for_all(read_dict,
                                     fig_size = None, 
                                     bias_per_pos = None, 
                                     return_df = False, 
-                                    include_BCs = False, 
+                                    include_BCs = False,
+                                    seq_include_Primer_start = False, 
                                     plt_section_ratios = None):
     """
     compare mutation enrichment for all sections as heatmaps with coverages and biases plotted below
@@ -319,7 +322,9 @@ def compare_mut_enrichement_for_all(read_dict,
     show_only_pos: dictionary with the positions to show for each section
     bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
     return_df: if True, df with the mutation rates is returned (if show_only_pos is set, only the positions of interest are returned, if not, a dict with df per section is returned)
-    include_BCs: whether or not the reads include BC seqs (then, the name should include the BCx name also)
+    include_BCs: whether or not the reads include BC seqs (if True, the name should include the BCx name also)
+    seq_include_Primer_start = whether or not the sequence includes the primer start, i.e. whether correction for triplet starts already happended during multiplexing (default: False), only used if include_BCs is False
+
     """
     dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
     gather_variants = dataType_handler.get(data_type)
@@ -378,8 +383,8 @@ def compare_mut_enrichement_for_all(read_dict,
                 catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
                 catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
             else: 
-                catch_left = Primer_seq[Section + "_fwd"][:tripl_st]
-                catch_right = dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+                catch_left = "" if not seq_include_Primer_start else ""+Primer_seq[Section + "_fwd"][:tripl_st] ## if the primer start was already cut from the sequence, the catch_left is empty, i.e. the whole sequence is used for further analysis (the sequence was already corrected for triplet start)
+                catch_right = "" if not seq_include_Primer_start else ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
 
             a_seq = read_dict[sample+ f"_{Section}_R1"]
             b_seq = read_dict[sample + f"_{Section}_R2"]
