@@ -461,20 +461,35 @@ def demultiplex_reads(a_seqs:list,
 
         for Section in Sections:
 
-            fwd_BC_Primer_seq = Barcodes[Barcode + "_fwd"] + Primer_seq[Section+"_fwd"] 
+            fwd_BC_Primer_seq = Barcodes[Barcode + "_fwd"] + Primer_seq[Section+"_fwd"]
+            fwd_BC_Primer_seq = fwd_BC_Primer_seq[:15]
             rev_BC_Primer_seq = Barcodes[Barcode + "_rev"] + Primer_seq[Section+"_rev"] 
+            rev_BC_Primer_seq = rev_BC_Primer_seq[:15]
 
             ### select the reads that contain the forward and reverse BC + primer sequences, thereby allowing for n mismatches in the primer sequences but no errors in BCs
-            fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and  sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
+            fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
+            print(fwd_idxs[:10])
                         
             rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_rev"] )] == Barcodes[Barcode + "_rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])]) <= max_mismatch_primerseq) ]
-
-            indexes = set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
+            print(rev_idxs[:10])
             
+            indexes = set(
+                [idx for idx in fwd_idxs if len(b_seqs[idx]) >= len(Barcodes[Barcode + "_rev"]) and b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
+                [len(a_seqs[idx]) >= len(Barcodes[Barcode + "_fwd"])  and idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that are in both lists, i.e. forward and reverse reads are matching, so that we reduce the likelihood of index swapping
+            #set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
+            print(sum([len(b_seqs[fwd_i]) <= len(Barcodes[Barcode + "_rev"]) for fwd_i in fwd_idxs]), "b reads are empty") ## reads that are only in the reverse list
+            print(sum([len(a_seqs[rev_i]) <= len(Barcodes[Barcode + "_fwd"]) for rev_i in rev_idxs]), "a reads are empty") ## reads that are only in the reverse list
+
+
+            print(len(indexes), "forward reads with matching BC and primer seq")
+            print(len(set(fwd_idxs+ rev_idxs)) - len(indexes), "reads with index swapping")
+            #print(len(set([i for i in fwd_idxs if len(b_seqs[i]) <= len(rev_BC_Primer_seq)] +[i for i in rev_idxs if len(a_seqs[i]) <= len(fwd_BC_Primer_seq)])))
+
             a_seq_Bc_Sec = [a_seqs[i] for i in indexes]
             b_seq_Bc_Sec = [b_seqs[i] for i in indexes]
 
-            print(Barcode, Section, len(a_seq_Bc_Sec), "reads")
+            print(Barcode, Section, len(a_seq_Bc_Sec), "reads before filtering")
+
 
             if a_ids and b_ids:
                 a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
@@ -506,7 +521,9 @@ def demultiplex_reads(a_seqs:list,
             if a_ids and b_ids:
                 ids_Dict[f"{Barcode}_{Section}_R1"] = a_ids_Bc_Sec
                 ids_Dict[f"{Barcode}_{Section}_R2"] = b_ids_Bc_Sec
+            print(f"################# Done: {Barcode} {Section}")
 
+        print(f"################# Done: {Barcode}")
     if a_ids and b_ids:
         return  read_Dict, ids_Dict
     else:

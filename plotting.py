@@ -98,7 +98,7 @@ def plot_mut_rate_per_pos(data,
     if FigFolder:
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
-        plt.savefig(f"{FigFolder}/{samplename}_mutation_rate_per_Nt_position.pdf", bbox_inches="tight")
+        plt.savefig(f"{FigFolder}/{samplename}_mutation_rate_per_{data_type}_position.pdf", bbox_inches="tight")
     plt.show()
     plt.clf()
 
