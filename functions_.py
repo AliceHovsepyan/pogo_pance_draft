@@ -474,8 +474,8 @@ def demultiplex_reads(a_seqs:list,
             print(len(rev_idxs))
             
             indexes = set(
-                [idx for idx in fwd_idxs if len(b_seqs[idx]) >= len(Barcodes[Barcode + "_rev"]) and b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
-                [idx for idx in rev_idxs if len(a_seqs[idx]) >= len(Barcodes[Barcode + "_fwd"]) and a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that are in both lists, i.e. forward and reverse reads are matching, so that we reduce the likelihood of index swapping
+                [idx for idx in fwd_idxs if b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
+                [idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that match in the fwd and rev BC seqs
                 
             #set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
             print(sum([len(b_seqs[fwd_i]) <= len(Barcodes[Barcode + "_rev"]) for fwd_i in fwd_idxs]), "b reads are empty") ## reads that are only in the reverse list
