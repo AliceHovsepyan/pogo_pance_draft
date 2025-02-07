@@ -11,6 +11,10 @@
 - we filter for reads that contain the correct barcode in the fwd and rev read (we also exclude reads for which the fwd or rev read is empty)
 	--> to filter out reads with index swapping
 
+- **RL8_R1...** is with primers closer to LOV2 region
+- **RL8_AraCLOV2_** is with primers that have a higher distance to LOV2 start, i.e. more of AraC is included
+
+
 #### Analysis
 ##### of positional effects
 - there are regions with higher/lower mut rate --> why??
@@ -51,9 +55,6 @@
 	`CRISPResso --fastq_r1 RL1_R1_001.fastq --fastq_r2 RL1_R2_001.fastq --amplicon_seq CGCCGCATGGAAGCGATTAACGAAAGCAGCGGTTTAGCCACAACGCTGGAACGCATTGAAAAGAATTTCGTAATCACAGACCCGCGCCTTCCCGACAATCCAATTATTTTTGCGTCCGATAGCTTCCTGCAATTAACCGAATACAGCCGCGAAGAAATTCTGGGTCGTAATTGTCGCTTCCTTCAGGGGCCAGAGACTGACCGTGCTACGGTACGCAAAATCCGCGACGCAATCGACAATCAAACGGAAGTCACGGTTCAGTTGATTAACTATACGAAGAGCGGAAAAAAATTCTGGAATTTATTTCACTTGCAGCCTATGCGTGACCAGAAGGGCGATGTCCAGTATTTCATTGGCGTTCAGCTTGATGGTACCGAGCATGTTCGCGATGCTGCGGAGCGTGAAGGTGTAATGTTAATTAAAAAGACTGCTGAAAACATTGATGAAGCGGCCAAAGGGAGCCTGCATCCGCCGATGGATAACCGCGTG -n RL1_crispresso_result --guide_seq GAAGCGATTAACGAAAGCAGCGGT,TGAAAACATTGATGAAGCGGCCAAA --cleavage_off
 
 
-
-
-
 ### POGO 
 
 #### Filtering 
@@ -63,4 +64,13 @@
 - we abort reads at the first base with a error rate > 1% (`quality_score`)
 - we filter for reads that contain the correct barcode in the fwd and rev read (we also exclude reads for which the fwd or rev read is empty)
 	--> to filter out reads with index swapping
+
+
+### Combined DMS and linker library
+
+##### R0035 (AraC LOV NGS Multi-library NGS) 
+- Passaged Wt S170 LOV with RL8, then RL1, presumably should have both indels and mutations in the lov domain
+
+##### R0036 (AraC LOV Linker Library Test 2 NGS) 
+- This was an AraC R2 LOV evolution experiment done with the LOV retron linkers so we analyze it like an evolution experiment; This has Indels presumably at the linker sites
 
