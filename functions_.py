@@ -471,15 +471,15 @@ def demultiplex_reads(a_seqs:list,
             print(fwd_idxs[:10])
                         
             rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_rev"] )] == Barcodes[Barcode + "_rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])]) <= max_mismatch_primerseq) ]
-            print(rev_idxs[:10])
+            print(len(rev_idxs))
             
             indexes = set(
-                [idx for idx in fwd_idxs if len(b_seqs[idx]) >= len(Barcodes[Barcode + "_rev"]) and b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
-                [len(a_seqs[idx]) >= len(Barcodes[Barcode + "_fwd"])  and idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that are in both lists, i.e. forward and reverse reads are matching, so that we reduce the likelihood of index swapping
+                [idx for idx in fwd_idxs if b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
+                [idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that match in the fwd and rev BC seqs
+                
             #set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
             print(sum([len(b_seqs[fwd_i]) <= len(Barcodes[Barcode + "_rev"]) for fwd_i in fwd_idxs]), "b reads are empty") ## reads that are only in the reverse list
             print(sum([len(a_seqs[rev_i]) <= len(Barcodes[Barcode + "_fwd"]) for rev_i in rev_idxs]), "a reads are empty") ## reads that are only in the reverse list
-
 
             print(len(indexes), "forward reads with matching BC and primer seq")
             print(len(set(fwd_idxs+ rev_idxs)) - len(indexes), "reads with index swapping")
@@ -878,6 +878,122 @@ def gather_n_mutations(a_seq,
         return mutation_dict, mutation_seq_dict
     else: 
         return mutation_dict
-    
-    
-    
+        
+
+def get_linker_variants(reads, 
+                        seq_before_linker, 
+                        seq_after_linker, 
+                        total_seq,  
+                        wt_linker, 
+                        intended_changes,
+                        adaptor_left,
+                        rev_reads,
+                        include_changes_after_linker = False, 
+                        include_deletions = True, 
+                        combine_other = True, 
+                        filter_treshold = 0.05
+                        ):
+    """
+    get linker variants
+
+    reads: list of sequences (if R2 read, call dna_rev_comp on the sequences prior to calling this function)
+    seq_before_linker: short DNA sequence before the linker (8-10 bp)
+    seq_after_linker: short DNA sequence after the linker
+    wt_linker: linker DNA sequence
+    total_seq_before_linker: sequence from the beginning of the read until the linker sequence
+    intended_changes: indels and mutations (deletions are handeled separately) that are intended to be introduced by the retron library
+    rev_reads: whether or not the reads are from the R2 read (on which dna_rev_comp was called already) (default: False)
+    include_changes_after_linker: whether or not to include reads that do not contain the sequence after linker, but are in principle long enough, in the analysis (default: False) -> are counted within "other" --> probably due to unintended changes (off-target retron editing), mutations or sequencing errors (intended changes are all located prior to or in the linker sequence, i.e. the sequence after the linker should not be affected by the retron editing)
+    include_deletions: whether or not to include deletions in the analysis (default: True) 
+    combine_other: whether or not to combine all "other" (not intended) sequences into one category (default: True)
+    filter_treshold: variants with frequency below filter_treshold (given in %) are filtered out (default: 0.05)
+
+    returns: dictionaries with (1) counts, (2) percents of linker variants, (3) percents of linker variants for AAs
+    """
+    print("total reads",len(reads)) # number of sequences
+    print("reads with target sequence", sum([seq_after_linker in seq for seq in reads])) ## sum of seqences that include the sequence after the linker
+
+    linker_variants = {}
+
+    for seq in reads:   ## indels and mutations
+        if seq_before_linker in seq and seq_after_linker in seq: ## only consider reads that contain the linker position
+            start_idx = seq.index(seq_before_linker) + len(seq_before_linker)
+            stop_idx = seq.index(seq_after_linker)
+            linker = seq[start_idx:stop_idx]
+
+            if linker in intended_changes: ## include intended changes
+                if linker in linker_variants.keys():
+                    linker_variants[linker] += 1
+                else: 
+                    linker_variants[linker] = 1
+
+            elif linker == wt_linker:
+                if "wt" in linker_variants.keys():
+                    linker_variants["wt"] += 1  
+                else: 
+                    linker_variants["wt"] = 1
+                
+            else:  ### include changes not intended to "other" category
+                if combine_other: 
+                    if "other" in linker_variants.keys():
+                        linker_variants["other"] += 1
+                    else: 
+                        linker_variants["other"] = 1
+                elif "other_" + linker in linker_variants.keys():
+                    linker_variants["other_" + linker] += 1
+                else: 
+                    linker_variants["other_" + linker] = 1
+
+        elif include_deletions: ## deletions
+            deleted_seq = seq_before_linker if not rev_reads else seq_after_linker ## sequence that is deleted (before or after depending on the read orientation)
+            intact_seq = seq_after_linker if not rev_reads else seq_before_linker ## sequence that is not deleted (before or after depending on the read orientation)
+
+            if intact_seq in seq and deleted_seq not in seq: ## because for deletions, we delete at least three bases from the seq before the linker, i.e. seq_before linker is not anymore completely in seq
+                seq_until_deletion = seq[len(adaptor_left):seq.index(intact_seq)] if not rev_reads else seq[seq.index(intact_seq)+len(intact_seq):-len(adaptor_left)] ## sequence with deletion
+                seq_before_deletion = seq_until_deletion[:10]  if rev_reads else seq_until_deletion[:-10]
+                if seq_before_deletion in total_seq:
+                    if not rev_reads:
+                        del_len = total_seq.index(seq_before_deletion)+len(seq_before_deletion) - (len(total_seq)+len(wt_linker)) ## length of deletion
+                    else: 
+                        del_len = -(total_seq.index(seq_before_deletion) + len(wt_linker))## length of deletion
+                    
+                    delname = "del"+str(del_len) if del_len !=0 else "del-0"
+                    if del_len <=0: ## no insertion but mutations in seq_before_linker, thus seq_before_linker is not in seq but we do not want to consider these reads
+                        
+                        if delname in linker_variants.keys():
+                            linker_variants[delname] += 1
+                        else:
+                            linker_variants[delname] = 1
+
+                    else: 
+                        if del_len == 0:
+                            if "other" in linker_variants.keys():
+                                linker_variants["other"] += 1
+                            else:
+                                linker_variants["other"] = 1
+                                
+                        elif "other_"+delname in linker_variants.keys():
+                            linker_variants["other"+delname] += 1
+                        else:
+                            linker_variants["other"+delname] = 1
+                        
+
+        elif include_changes_after_linker: ## other (untargeted changes that effect the sequence after the linker)
+            if len(seq) >= len(total_seq)+len(wt_linker)+len(seq_after_linker):
+                if "after_linker" not in linker_variants.keys():
+                    linker_variants["after_linker"] = 1
+                else:
+                    linker_variants["after_linker"] += 1
+
+    total_vars = sum(linker_variants.values())
+    ### percentage
+    linker_variants_perc = {seq: count/total_vars*100 for seq,count in linker_variants.items()}
+    ## exclude everything below given filter_treshold
+    linker_variants_perc = {seq: count for seq,count in linker_variants_perc.items() if count > filter_treshold}
+    ## order after value size
+    linker_variants_perc = dict(sorted(linker_variants_perc.items(), key = lambda x: x[1], reverse = True))
+    ### convert dict keys to AAs
+    linker_variants_perc_AA = {(translate_dna2aa(seq) if seq[0] in ["A","C","G","T"] else seq) : count for seq,count in linker_variants_perc.items()}
+    linker_variants_perc_AA = dict(sorted(linker_variants_perc_AA.items(), key = lambda x: x[1], reverse = True))
+
+    return linker_variants, linker_variants_perc, linker_variants_perc_AA
