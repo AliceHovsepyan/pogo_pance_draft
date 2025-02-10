@@ -37,7 +37,7 @@ def find_(string,
 def read_sequences(variant, 
                    catch_left, 
                    catch_right, 
-                   base_dir = os.getcwd(), 
+                   base_dir = None, 
                    arbitrary_cutoff_a = None, 
                    arbitrary_cutoff_b = None, 
                    quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], 
@@ -56,6 +56,9 @@ def read_sequences(variant,
     returns: list of  R1 sequences, R2 sequences (and optionally R1 qualities, R2 qualities, R1 ids, R2 ids)
     """
 
+    if not base_dir:
+        base_dir = os.getcwd() + "/data/fastq/"
+
     a_sequences = []
     b_sequences = []
     a_qualities = []
@@ -63,7 +66,7 @@ def read_sequences(variant,
     a_ids = []
     b_ids = []
 
-    with open(f'{base_dir}/data/fastq/{variant}_R1_001.fastq', "rt") as a_file, open(f'{base_dir}/data/fastq/{variant}_R2_001.fastq', "rt") as b_file:
+    with open(f'{base_dir}/{variant}_R1_001.fastq', "rt") as a_file, open(f'{base_dir}/{variant}_R2_001.fastq', "rt") as b_file:
 
         a_reader = QualityIO.FastqGeneralIterator(a_file)
         b_reader = QualityIO.FastqGeneralIterator(b_file)
