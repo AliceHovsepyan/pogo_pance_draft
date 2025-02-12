@@ -498,7 +498,6 @@ def demultiplex_reads(a_seqs:list,
                 a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
                 b_ids_Bc_Sec = [b_ids[i].split(" ")[0]  for i in indexes]
 
-            ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
     
             if cut_BC_seq: 
                 cutoff_a = len(Barcodes[Barcode + "_fwd"]) if not cut_primer_start else len(Barcodes[Barcode + "_fwd"]) + Primer_out_of_triplets[Section + "_fwd"]
@@ -508,6 +507,8 @@ def demultiplex_reads(a_seqs:list,
                 b_seq_Bc_Sec = [b[cutoff_b:] if len(b)>=cutoff_b else "" for b in b_seq_Bc_Sec]
 
             if filter_for_n_mut or filter_for_read_len:
+                ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+
                 if cut_BC_seq:
                     catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
                     catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
