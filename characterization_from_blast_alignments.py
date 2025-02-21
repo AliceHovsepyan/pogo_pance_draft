@@ -51,10 +51,46 @@ def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1"):
     print(LOV2_start_indel_count, "sequences are excluded, since LOV2 start site could not be found in the ref (due to '-' i.e. insertions at the start of LOV2)")
 
     return(linker_alignments, LOV2_alignments)
+
+
+def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"): 
+    """ 
+    Function to restructure the alignments, so that the qseq, hseq, midline sequences are stored in a dict with the seq_id as key
+    Thereby, we exclude sequences that do not start exactly at the start (R1) or end (R2) of the amplicon sequence, i.e. are out of frame
+    
+    """
+    exlude_seqs = 0
+    alignments = {}
+
+
+    for alignment in blast_alignments:
+        query_from = alignment["hsps"][0]["query_from"]
+        query_to = alignment["hsps"][0]["query_to"]
+        qseq = alignment["hsps"][0]["qseq"].upper()
+        hseq = alignment["hsps"][0]["hseq"].upper()
+        seq_id = alignment["description"][0]["title"]
+        midline = alignment["hsps"][0]["midline"]
         
+        if read_dir == "R1": 
+            if query_from != 1 :
+                exlude_seqs += 1
+                continue
+        else: 
+            if query_to != len(query_seq):
+                exlude_seqs += 1
+                continue
+            
+        read_out_of_frame = len(hseq) % 3 if read_dir == "R2" else 0 ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame)
+        
+        alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], "hseq": hseq[read_out_of_frame:], "midline": midline[read_out_of_frame:]}
+
+    print(exlude_seqs, "sequences are excluded, since they do not cover the start (R1) or end (R2) of the amplicon sequence ")
+
+    return(alignments)
 
 
-def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read_dir = "R1", exclude_not_covered_regions = True):
+
+def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read_dir = "R1", exclude_not_covered_regions = True, cut_to_same_start = True):
     """
     Function to characterize the DMS alignments, by counting the number of insertions, deletions and substitutions per position
 
@@ -63,6 +99,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     ref: str, reference DNA sequence 
     data_type: str, "AA" or "DNA"
     read_dir: str, "R1" or "R2"
+    cut_to_same_start: bool, if True, the sequences are cut to the same start position, otherwise, start and end positions have to be provided as query_from and query_to keys
 
     returns:
     all_variants: dict, with the counts of the variants per position
@@ -77,6 +114,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     included_seq = 0
     indels = pd.DataFrame(columns = range(len(ref)), index = ["insertion", "deletion"], data = 0)
 
+
     ref_prot = translate_dna2aa(ref)
 
     if data_type == "AA":
@@ -89,9 +127,9 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
         for idx in range(len(ref)):
                 all_variants[idx] = {'A':0, 'C':0, 'G':0, 'T':0}
             
-    for x in DMS_alignments.values():
-        qseq = x["qseq"]
-        hseq = x["hseq"]
+    for alignment in DMS_alignments.values():
+        qseq = alignment["qseq"]
+        hseq = alignment["hseq"]
 
         if "-" in hseq or "-" in qseq:
             seq_with_off_target_indels += 1
@@ -116,7 +154,6 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
         if data_type == "AA":
             hseq = translate_dna2aa(hseq)
 
-        #print(len(hseq)/3)
         if read_dir == "R2": 
             hseq = hseq[::-1]
             for idx, variant in enumerate(hseq):
@@ -153,7 +190,7 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
     read_dir: str, "R1" or "R2"
 
     returns:
-
+    linkers: dict, with the counts of the linker variants
 
     """
 

@@ -595,7 +595,10 @@ def find_reference_seq(ref_gene,
     """ 
     tripl_st = Primer_out_of_triplets[Section+"_fwd"]
     tripl_end = Primer_out_of_triplets[Section+"_rev"]
-    ref_gene_section = ref_gene[ref_gene.index(Primer_seq[Section + "_fwd"][tripl_st:]):ref_gene.index(dna_rev_comp(Primer_seq[Section+"_rev"][tripl_end:]))+len(Primer_seq[Section+"_rev"][tripl_end:])]
+    primer_fwd = Primer_seq[Section + "_fwd"][tripl_st:]
+    primer_rev = dna_rev_comp(Primer_seq[Section+"_rev"][tripl_end:])
+    
+    ref_gene_section = ref_gene[ref_gene.index(primer_fwd):ref_gene.index(primer_rev)+len(primer_rev)]
 
     return ref_gene_section
 
