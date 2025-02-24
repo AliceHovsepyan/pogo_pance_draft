@@ -34,11 +34,26 @@ from Bio.SeqRecord import SeqRecord
 
 from functions_ import *
 from plotting import *
+import argparse
 
 
 ###########define the necessary variables ##########
 
-base_dir = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+parser = argparse.ArgumentParser(description="Filter and demultiplex reads.")
+parser.add_argument("filepath", type=str, help="Path to the fastq files")
+
+# Default `save_ref` to False, enable it only if `--save_ref` is provided
+parser.add_argument("--save_ref", action="store_true", help="Enable saving reference (default: False)")
+
+args = parser.parse_args()
+
+# Assign to shorter variable names
+base_dir = args.filepath
+save_ref = args.save_ref
+
+# Now you can use them directly
+print(f"Filepath: {base_dir}")
+print(f"Save reference: {save_ref}")
 
 with open(f"{base_dir}/config.json", "r") as file:
     config = json.load(file)
@@ -55,6 +70,7 @@ cut_BC_seq = config["cut_BC_seq"]
 used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"]
 amplicon = config["amplicon"]   
+include_only_complete_reads = config["include_only_complete_reads"] if "include_only_complete_reads" in config else False
 
 
 quality_score = {
@@ -71,13 +87,12 @@ quality_score = {
 a_seq, b_seq, _, _, a_ids, b_ids = read_sequences(variant = variant, arbitrary_cutoff_a = False, arbitrary_cutoff_b = False, catch_left=catch_left, catch_right=catch_right, return_qualities_ids=True, quality_score=remove_read_qualities, base_dir = base_dir)
 
 ## demultiplex the reads based on the barcodes and the primer sequence
-all_reads, all_ids = demultiplex_reads(a_seq, b_seq, ref_gene = None ,Barcodes=Barcodes, Primer_seq=Primer_seq, used_Barcodes = used_Barcodes, Sections = Sections, max_mismatch_primerseq = 5, filter_for_n_mut = False, n_mut_treshold = None, a_ids=a_ids, b_ids=b_ids,  read_len_treshold= None, Primer_out_of_triplets= Primer_out_of_triplets, cut_primer_start=True, cut_BC_seq=True)
-
+all_reads, all_ids = demultiplex_reads(a_seq, b_seq, ref_gene = None ,Barcodes=Barcodes, Primer_seq=Primer_seq, used_Barcodes = used_Barcodes, Sections = Sections, max_mismatch_primerseq = 5, filter_for_n_mut = False, n_mut_treshold = None, a_ids=a_ids, b_ids=b_ids, read_len_treshold= None, Primer_out_of_triplets= Primer_out_of_triplets, cut_primer_start=True, cut_BC_seq=True, catch_left=catch_left, catch_right=catch_right, include_only_complete_reads=include_only_complete_reads)
 
 
 ############# save as fasta files ###############
 
-## save the demultiplexed reads (R2 reads are saved as reverse complemented reads)
+## save the demultiplexed reads (R2 reads are saved as reverse complemented reads) and the reference sequences as fasta files
 Path(f"{base_dir}/preprocessed/").mkdir(parents = True, exist_ok=True)
 Path(f"{base_dir}/references/").mkdir(parents = True, exist_ok=True)
 
@@ -85,9 +100,9 @@ Path(f"{base_dir}/references/").mkdir(parents = True, exist_ok=True)
 for Bc in used_Barcodes: 
 
     for section in Sections:
-
-        ref = find_reference_seq(ref_gene=amplicon, Primer_seq=Primer_seq, Section=section, Primer_out_of_triplets=Primer_out_of_triplets) 
-        ref_sequences = [SeqRecord(Seq(ref), id = f"{variant}_{section}_ref", description = f"{variant} {section} DNA sequence")]
+        if save_ref: ## only, if save_ref is True, the reference sequences are saved. Otherwise, the reference sequences have to be provided prior to running the script in the references folder, with the correct file names (e.g. {variant}_{Bc}_{section}_Nt_filt_ref.fasta)
+            ref = find_reference_seq(ref_gene=amplicon, Primer_seq=Primer_seq, Section=section, Primer_out_of_triplets=Primer_out_of_triplets) 
+            ref_sequences = [SeqRecord(Seq(ref), id = f"{variant}_{section}_ref", description = f"{variant} {section} DNA sequence")]
 
         for Read_dir in ["R1", "R2"]:
 
@@ -100,12 +115,12 @@ for Bc in used_Barcodes:
             count = SeqIO.write(sequences, output_file, "fasta")
             with open(output_file, "w") as output_handle:
                 SeqIO.write(sequences, output_handle, "fasta")
-
-            with open(f"{base_dir}/references/{variant}_{Bc}_{section}_Nt_filt_ref.fasta", "w") as output_handle:
-                SeqIO.write(ref_sequences, output_handle, "fasta")
-
             print("Saved %i records to %s" % (count, output_file))
-            print(f"Saved reference sequence for {variant} {section} to {base_dir}/preprocessed/{variant}_{Bc}_{section}_Nt_filt_ref.fasta")
+
+            if save_ref:
+                with open(f"{base_dir}/references/{variant}_{Bc}_{section}_Nt_filt_ref.fasta", "w") as output_handle:
+                    SeqIO.write(ref_sequences, output_handle, "fasta")
+                print(f"Saved reference sequence for {variant} {section} to {base_dir}/preprocessed/{variant}_{Bc}_{section}_Nt_filt_ref.fasta")
 
     
     

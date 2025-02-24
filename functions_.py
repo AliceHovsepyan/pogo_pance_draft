@@ -433,7 +433,10 @@ def demultiplex_reads(a_seqs:list,
                       a_ids:list = None, 
                       b_ids:list = None, 
                       cut_BC_seq = True,
-                      cut_primer_start=True,):
+                      cut_primer_start=True,
+                      catch_left = "",
+                      catch_right = "",
+                      include_only_complete_reads = False):
     """
     demultiplex reads from fastq-files, if different samples were pooled and the region of interest was divided into sections for sequencing
     
@@ -465,9 +468,9 @@ def demultiplex_reads(a_seqs:list,
         for Section in Sections:
 
             fwd_BC_Primer_seq = Barcodes[Barcode + "_fwd"] + Primer_seq[Section+"_fwd"]
-            fwd_BC_Primer_seq = fwd_BC_Primer_seq[:15]
+            #fwd_BC_Primer_seq = fwd_BC_Primer_seq[:15]
             rev_BC_Primer_seq = Barcodes[Barcode + "_rev"] + Primer_seq[Section+"_rev"] 
-            rev_BC_Primer_seq = rev_BC_Primer_seq[:15]
+            #rev_BC_Primer_seq = rev_BC_Primer_seq[:15]
 
             ### select the reads that contain the forward and reverse BC + primer sequences, thereby allowing for n mismatches in the primer sequences but no errors in BCs
             fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
@@ -505,18 +508,28 @@ def demultiplex_reads(a_seqs:list,
 
                 a_seq_Bc_Sec = [a[cutoff_a:] if len(a)>=cutoff_a else "" for a in a_seq_Bc_Sec]
                 b_seq_Bc_Sec = [b[cutoff_b:] if len(b)>=cutoff_b else "" for b in b_seq_Bc_Sec]
+            
+            ## cut sequences at the catch_left and catch_right positions
+            if include_only_complete_reads: ## only include reads that contain the full sequence (i.e. catch_left and catch_right is present)
+                a_seq_Bc_Sec = [read[read.index(catch_left)+len(catch_left):read.index(catch_right)] if catch_left in read and catch_right in read else "" for read in a_seq_Bc_Sec ]
 
-            if filter_for_n_mut or filter_for_read_len:
-                ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+                b_seq_Bc_Sec = [read[read.index(dna_rev_comp(catch_right))+len(catch_right):read.index(dna_rev_comp(catch_left))] if dna_rev_comp(catch_right) in read  and dna_rev_comp(catch_left) in read else "" for read in b_seq_Bc_Sec ]
 
-                if cut_BC_seq:
-                    catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
-                    catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
-                else:
-                    catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
-                    catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+            else: ## cut sequences at the catch_left and catch_right positions, reads do not have to be complete 
+                a_seq_Bc_Sec = [a[a.index(catch_left)+len(catch_left):] if catch_left in a else "" for a in a_seq_Bc_Sec]
+                b_seq_Bc_Sec = [b[b.index(dna_rev_comp(catch_right))+len(catch_right):] if dna_rev_comp(catch_right) in b else "" for b in b_seq_Bc_Sec]
+
+            # if filter_for_n_mut or filter_for_read_len:
+            #     ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+
+            #     if cut_BC_seq:
+            #         catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
+            #         catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+            #     else:
+            #         catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
+            #         catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
                 
-                a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
+            #     a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec

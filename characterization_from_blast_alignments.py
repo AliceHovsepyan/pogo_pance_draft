@@ -149,6 +149,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
                     shift += 1 ## to correct for the shift in the index, due to the insertion
                 
             continue
+        
         #filtered_hseq = "".join([s2 for s1, s2 in zip(qseq, hseq) if s1 != "-"]) ## filter out gaps that are present in the hseq, to exclude insertions that lead to frameshifts (seq errors or off target insertions)
 
         if data_type == "AA":
@@ -202,8 +203,8 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
         hseq = x["hseq"]
 
         ##### Exclude frameshift reads 
-        if qseq.count("-") % 3 != 0 or hseq.count("-") % 3 != 0:  
-            # Insertions (shown as "-" in ref) not multiple of three lead to frameshifts -> exclude these reads
+        if (qseq.count("-") - hseq.count("-")) %3 != 0: #qseq.count("-") != 0 or hseq.count("-") % 3 != 0:  
+            # Insertions (shown as "-" in ref) and deletions that sum up to not multiple of three lead to frameshifts -> exclude these reads
             frameshifts += 1
 
         ##### WT sequences
