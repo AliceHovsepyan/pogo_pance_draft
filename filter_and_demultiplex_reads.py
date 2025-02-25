@@ -182,6 +182,7 @@ for read_file in input_dir.glob("*.fasta"):
         "-out", str(output_file),
         "-outfmt", "15", # Output format 15 is JSON
         "-max_target_seqs", "100000",
+        "-evalue", "100000",
     ], check=True)
 
 print("BLAST pipeline completed!")
