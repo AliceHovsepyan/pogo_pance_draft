@@ -34,13 +34,15 @@ def coverage_plot(coverage_df,
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
         plt.savefig(f'{FigFolder}/{samplename}_coverage.pdf')
+        plt.savefig(f'{FigFolder}/{samplename}_coverage.png')
     plt.show()
 
 
 def plot_mutation_spectrum(data, 
                            samplename="" , 
                            FigFolder = None, 
-                           colormap = "viridis"):
+                           colormap = "viridis",
+                           data_type = "DNA"):
     """
     plot mutation spectrum (%) as heatmap
 
@@ -49,15 +51,15 @@ def plot_mutation_spectrum(data,
     samplename = name of the sample 
     """
     f, ax = plt.subplots(figsize=(6, 6))
-    sns.heatmap(data, annot=True, linewidths=.5, ax=ax, vmin = 0, cbar = False, square = True, linecolor = "black", cmap = colormap)
+    sns.heatmap(data, annot=True if data_type=="DNA" else False, linewidths=.5, ax=ax, vmin = 0, cbar = False if data_type=="DNA" else True, square = True, linecolor = "black", cmap = colormap)
     plt.xlabel('Mutated base (%)', fontsize = 10)
     plt.ylabel('Reference base (%)', fontsize = 10)
     for _, spine in ax.spines.items():
         spine.set_visible(True)
         spine.set_linewidth(.5)
-    ax.set_yticklabels(ax.get_yticklabels(), rotation=1, fontsize=10)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=1, fontsize=10)
-    plt.title(f"{samplename} mutagenic spectrum", fontsize = 12)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=1, fontsize=10 if data_type=="DNA" else 5)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=1, fontsize=10 if data_type=="DNA" else 5)
+    plt.title(f"{samplename}", fontsize = 12)
 
     if FigFolder:
         if not os.path.exists(FigFolder):
@@ -148,6 +150,7 @@ def plot_mutation_enrichment(variants_df,
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
         plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.pdf", bbox_inches="tight")
+        plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.png", bbox_inches="tight")
 
     plt.show()
     plt.clf()

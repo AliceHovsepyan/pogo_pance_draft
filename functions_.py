@@ -1017,3 +1017,45 @@ def get_linker_variants(reads,
     linker_variants_perc_AA = dict(sorted(linker_variants_perc_AA.items(), key = lambda x: x[1], reverse = True))
 
     return linker_variants, linker_variants_perc, linker_variants_perc_AA
+
+
+
+### calculate mutagenic spectrum from enrichment dataframes 
+
+def calc_mut_spectrum_from_enrichment(enrichment_df, ref_seq, data_type = "DNA", set_diag_to_NA = True):
+    """
+    calculate mutagenic spectrum from enrichment dataframes
+
+    enrichment_df: dataframe with the counts of each AA/Codon/Nt at each position
+    data_type: "AA", "DNA" or "Codons"
+    ref_seq = reference DNA (if data_type = "DNA" or "Codon") or AA (if data_type = "AA") sequence
+
+    returns: pd dataframe with the counts, pd.dataframe with relative frequencies
+    """
+
+    if data_type == "DNA":
+        variants = ["A", "C", "G", "T"]
+
+    elif data_type == "Codons":
+        variants = ['AAA', 'AAC', 'AAG', 'AAT', 'ACA', 'ACC', 'ACG', 'ACT', 'AGA', 'AGC', 'AGG', 'AGT', 'ATA', 'ATC', 'ATG', 'ATT', 'CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT', 'GAA', 'GAC', 'GAG', 'GAT', 'GCA', 'GCC', 'GCG', 'GCT', 'GGA', 'GGC', 'GGG', 'GGT', 'GTA', 'GTC', 'GTG', 'GTT', 'TAA', 'TAC', 'TAG', 'TAT', 'TCA', 'TCC', 'TCG', 'TCT', 'TGA', 'TGC', 'TGG', 'TGT', 'TTA', 'TTC', 'TTG', 'TTT']
+        ref_seq = [ref_seq[i:i+3] for i in range(0,len(ref_seq),3)]
+
+    elif data_type == "AA":
+        variants = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
+
+    mut_spectrum = pd.DataFrame(index = variants, columns = variants, data = 0, dtype = np.float64) ## rows = reference, cols = mutated
+
+    for idx, ref_var in enumerate(ref_seq): 
+        for mut_nt in ref_seq:
+            mut_pos = enrichment_df.iloc[:,idx]
+            mut_count = mut_pos[mut_nt]
+            #print(mut_count)
+            mut_spectrum.loc[ref_var, mut_nt] += mut_count
+    
+    if set_diag_to_NA:
+        np.fill_diagonal(mut_spectrum.values, np.nan)
+    
+    ## percentage
+    mut_spectrum_perc = mut_spectrum/mut_spectrum.sum().sum()*100
+            
+    return mut_spectrum, mut_spectrum_perc

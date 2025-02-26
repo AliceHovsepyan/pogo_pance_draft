@@ -79,10 +79,14 @@ def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"):
             if query_to != len(query_seq):
                 exlude_seqs += 1
                 continue
-            
-        read_out_of_frame = len(hseq) % 3 if read_dir == "R2" else 0 ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame)
         
-        alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], "hseq": hseq[read_out_of_frame:], "midline": midline[read_out_of_frame:]}
+        if read_dir == "R1":
+            read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads, so that they end on a codon boundary
+            alignments[seq_id] = {"qseq": qseq[:-read_out_of_frame], "hseq": hseq[:-read_out_of_frame], "midline": midline[-read_out_of_frame]}
+            
+        if read_dir == "R2":
+            read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame)
+            alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], "hseq": hseq[read_out_of_frame:], "midline": midline[read_out_of_frame:]}
 
     print(exlude_seqs, "sequences are excluded, since they do not cover the start (R1) or end (R2) of the amplicon sequence ")
 
@@ -97,7 +101,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     args:
     DMS_alignments: dict, with the sequences of insert that is mutated 
     ref: str, reference DNA sequence 
-    data_type: str, "AA" or "DNA"
+    data_type: str, "AA", "DNA" or "Codons
     read_dir: str, "R1" or "R2"
     cut_to_same_start: bool, if True, the sequences are cut to the same start position, otherwise, start and end positions have to be provided as query_from and query_to keys
 
@@ -119,14 +123,19 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
 
     if data_type == "AA":
         for idx in range(len(ref_prot)):
-                all_variants[idx] = {'A':0, 'C':0, 'D':0, 'E':0, 'F':0, 'G':0, 
+            all_variants[idx] = {'A':0, 'C':0, 'D':0, 'E':0, 'F':0, 'G':0, 
                                     'H':0, 'I':0, 'K':0, 'L':0, 'M':0, 'N':0, 
                                     'P':0, 'Q':0, 'R':0, 'S':0, 'T':0, 'V':0, 
                                     'W':0, 'Y':0, '*':0} ## X: are triplets with missing nucleotides (i.e. in the aligned seq, "-" is present), that would lead to a frameshift
-    else: 
+    elif data_type == "DNA": 
         for idx in range(len(ref)):
-                all_variants[idx] = {'A':0, 'C':0, 'G':0, 'T':0}
-            
+            all_variants[idx] = {'A':0, 'C':0, 'G':0, 'T':0}
+
+    else:
+        codons = ['AAA', 'AAC', 'AAG', 'AAT', 'ACA', 'ACC', 'ACG', 'ACT', 'AGA', 'AGC', 'AGG', 'AGT', 'ATA', 'ATC', 'ATG', 'ATT', 'CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT', 'GAA', 'GAC', 'GAG', 'GAT', 'GCA', 'GCC', 'GCG', 'GCT', 'GGA', 'GGC', 'GGG', 'GGT', 'GTA', 'GTC', 'GTG', 'GTT', 'TAA', 'TAC', 'TAG', 'TAT', 'TCA', 'TCC', 'TCG', 'TCT', 'TGA', 'TGC', 'TGG', 'TGT', 'TTA', 'TTC', 'TTG', 'TTT']
+        for idx in range(len(ref_prot)): 
+            all_variants[idx] = {codon: 0 for codon in codons}
+
     for alignment in DMS_alignments.values():
         qseq = alignment["qseq"]
         hseq = alignment["hseq"]
@@ -154,6 +163,8 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
 
         if data_type == "AA":
             hseq = translate_dna2aa(hseq)
+        elif data_type == "Codons":
+            hseq = [hseq[i:i+3] for i in range(0, len(hseq), 3)]
 
         if read_dir == "R2": 
             hseq = hseq[::-1]
@@ -174,7 +185,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     if exclude_not_covered_regions: 
         enrichment_df = enrichment_df.loc[:,enrichment_df.sum() > 0]
 
-    enrichment_counts, enrichment_relative = mask_ref_in_variants_df(variant_df=enrichment_df, ref_seq=ref if data_type=="DNA" else ref_prot, data_type=data_type, reverse = True if read_dir == "R2" else False)
+    enrichment_counts, enrichment_relative = mask_ref_in_variants_df(variant_df=enrichment_df, ref_seq=ref_prot if data_type=="AA" else ref, data_type=data_type, reverse = True if read_dir == "R2" else False)
     
 
     return all_variants, indels_freq, enrichment_counts, enrichment_relative

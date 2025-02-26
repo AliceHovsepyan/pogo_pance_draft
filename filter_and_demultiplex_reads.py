@@ -3,35 +3,9 @@ import json
 import sys
 import subprocess
 from pathlib import Path
-# from Bio.SeqIO import QualityIO
-# import numpy as np
-# from matplotlib import pyplot as plt
-# import matplotlib.cm as cm
-# import gzip
-# import glob
-# import re
-# from DMS_utils import dna_rev_comp, translate_dna2aa
-# import pandas as pd
-# import seaborn as sns
-# import pickle as pkl
-# import matplotlib.colors as mcolors
-# from scipy import stats
-# import os.path
-# from matplotlib.lines import Line2D
-# import json
-# import shutil
-# #from evaluation_functions import *
-# from functions_ import *
-# from plotting import *
-# from Bio import SeqIO
-# import matplotlib.patches as patches
-# from collections import Counter
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-
-# from characterization_from_blast_alignments import *
-
 from functions_ import *
 from plotting import *
 import argparse
@@ -122,22 +96,6 @@ for Bc in used_Barcodes:
                     SeqIO.write(ref_sequences, output_handle, "fasta")
                 print(f"Saved reference sequence for {variant} {section} to {base_dir}/preprocessed/{variant}_{Bc}_{section}_Nt_filt_ref.fasta")
 
-    
-    
-
-
-## save ref fastq
-# for sec in Sections: 
-#     ref = find_reference_seq(ref_gene=amplicon, Primer_seq=Primer_seq, Section=sec, Primer_out_of_triplets=Primer_out_of_triplets) 
-#     sequences = [SeqRecord(Seq(ref), id = f"{variant}_{sec}_ref", description = f"{variant} {sec} DNA sequence")]
-
-#     with open(f"{base_dir}/{variant}_{sec}_Nt_ref.fasta", "w") as output_handle:
-#         SeqIO.write(sequences, output_handle, "fasta")
-
-#     print(f"Saved reference sequence for {variant} {sec} to {base_dir}/{variant}_{sec}_Nt_ref.fasta")
-
-
-
 ################ run blast ####################
 
 
@@ -182,7 +140,8 @@ for read_file in input_dir.glob("*.fasta"):
         "-out", str(output_file),
         "-outfmt", "15", # Output format 15 is JSON
         "-max_target_seqs", "100000",
-        "-evalue", "100000",
+       # "-evalue", "100000",
+       # "-word_size", "7",
     ], check=True)
 
 print("BLAST pipeline completed!")
