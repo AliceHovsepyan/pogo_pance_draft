@@ -569,11 +569,11 @@ def mask_ref_in_variants_df(variant_df:pd.DataFrame,
 
         if reverse: 
             for idx in range(read_len):
-                variant_df.loc[ref_seq[::-1][idx], len(ref_seq)-idx-1] = np.nan
+                variant_df.loc[ref_seq[::-1][idx], variant_df.columns[read_len-idx-1]] = np.nan #select column based on idx
             
         else: 
             for idx in range(read_len):
-                variant_df.loc[ref_seq[idx], idx] = np.nan
+                variant_df.loc[ref_seq[idx], variant_df.columns[idx]] = np.nan
 
     elif data_type == "Codons":
 
@@ -581,11 +581,11 @@ def mask_ref_in_variants_df(variant_df:pd.DataFrame,
 
         if reverse: 
             for idx in range(read_len):
-                variant_df.loc[codons[::-1][idx], len(codons)-idx-1] = np.nan
+                variant_df.loc[codons[::-1][idx], variant_df.columns[read_len-idx-1]] = np.nan
         
         else:
             for idx in range(read_len):
-                variant_df.loc[codons[idx], idx] = np.nan
+                variant_df.loc[codons[idx], variant_df.columns[idx]] = np.nan
     
     variant_df_relative = variant_df/total_counts # calculate relative frequencies (columns with total counts = 0 --> NaN)
 
@@ -1038,7 +1038,7 @@ def calc_mut_spectrum_from_enrichment(enrichment_df, ref_seq, data_type = "DNA",
 
     elif data_type == "Codons":
         variants = ['AAA', 'AAC', 'AAG', 'AAT', 'ACA', 'ACC', 'ACG', 'ACT', 'AGA', 'AGC', 'AGG', 'AGT', 'ATA', 'ATC', 'ATG', 'ATT', 'CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT', 'GAA', 'GAC', 'GAG', 'GAT', 'GCA', 'GCC', 'GCG', 'GCT', 'GGA', 'GGC', 'GGG', 'GGT', 'GTA', 'GTC', 'GTG', 'GTT', 'TAA', 'TAC', 'TAG', 'TAT', 'TCA', 'TCC', 'TCG', 'TCT', 'TGA', 'TGC', 'TGG', 'TGT', 'TTA', 'TTC', 'TTG', 'TTT']
-        ref_seq = [ref_seq[i:i+3] for i in range(0,len(ref_seq),3)]
+        ref_seq = [ref_seq[i:i+3] for i in range(0,len(ref_seq)//3*3,3)]
 
     elif data_type == "AA":
         variants = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
@@ -1046,7 +1046,7 @@ def calc_mut_spectrum_from_enrichment(enrichment_df, ref_seq, data_type = "DNA",
     mut_spectrum = pd.DataFrame(index = variants, columns = variants, data = 0, dtype = np.float64) ## rows = reference, cols = mutated
 
     for idx, ref_var in enumerate(ref_seq): 
-        for mut_nt in ref_seq:
+        for mut_nt in enrichment_df.index:
             mut_pos = enrichment_df.iloc[:,idx]
             mut_count = mut_pos[mut_nt]
             #print(mut_count)

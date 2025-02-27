@@ -107,7 +107,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
 
     returns:
     all_variants: dict, with the counts of the variants per position
-    indels: pd.DataFrame, with the counts of insertions and deletions per position
+    indels_freq: pd.DataFrame, with the counts of insertions and deletions per position (normalized to # alignments)
     enrichment_counts: pd.DataFrame, with the counts of the variants per position, with the reference sequence masked
     enrichment_relative: pd.DataFrame, with the relative counts of the variants per position, with the reference sequence masked
 

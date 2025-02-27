@@ -127,6 +127,7 @@ def plot_mutation_enrichment(variants_df,
         seq_pos = list(ref_seq)
     if data_type == "Codons":
         seq_pos = [ref_seq[i:i+3] for i in range(0, len(ref_seq)//3*3, 3)]
+        print(seq_pos)
 
     plt.figure(figsize=(30,10))
     sns.reset_defaults()
