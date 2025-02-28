@@ -28,43 +28,26 @@ from Bio.SeqRecord import SeqRecord
 from characterization_from_blast_alignments import *
 
 
-data_dir = "data/fastq/P03_RL8_AraCLOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/fastq/R35" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 #P01_DP6_LOV2/" #P02_RL8_LOV2
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
-read_directions = [ "R1"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
-datatypes = [ "DNA", "AA", "Codons"] # data types that should be considered for the analysis ["DNA", "AA", "Codons"]
+read_directions = [ "R1", "R2"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
 
 roi_startseq = "ttagccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
 roi_endseq = "cggccaaa".upper() ## LOV2 end
-filter_for_reads_with_roi = True
-cut_to_roi = False # if True, the reads will be filtered for the region of interest, if False, the whole read will be considered for the analysis
+filter_for_reads_with_roi = True ## if True, only reads that contain the region of interest will be considered for the analysis
 
 variant = config["variant"] 
 used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
-full_amplicon = config["amplicon"]#[2:]
-full_amplicon_AA = translate_dna2aa(full_amplicon)
-min_coverage = 100
+
+min_coverage = 500
 data_type = "AA"
 
 
-
 print("############# calculation for", data_type, "#############")
-full_reference = full_amplicon if data_type != "AA" else full_amplicon_AA
-
-
-key_of_interest = "combined" if len(read_directions) > 1 else read_directions[0]
-
-FigFolder = f"{os.getcwd()}/output/{variant}/blast/{key_of_interest}/plots/{data_type}"
-if not os.path.exists(FigFolder):
-    os.makedirs(FigFolder)
-
-
-OutputFolder = f"{os.getcwd()}/output/{variant}/blast/{key_of_interest}/enrichments/{data_type}"
-if not os.path.exists(OutputFolder):
-    os.makedirs(OutputFolder)
 
 ############# 
 
@@ -112,6 +95,7 @@ ecoli_pref = { ### codons used for retron library (RL8) construction
             "Y": "TAT",
             "V": 'GTG',
 }
+
 for Bc in used_Barcodes:
     print("##############", Bc, "##############")
     for Section in Sections: 
@@ -121,3 +105,179 @@ for Bc in used_Barcodes:
         if not os.path.exists(f"{data_dir}/references/{blast_stemFilename}ref.fasta"):
             print(f"Reference file {data_dir}/references/{blast_stemFilename}ref.fasta does not exist, please check the reference file path")
             exit()
+        
+
+        ### set the reference
+        amplicon_seq = str(SeqIO.read(f"{data_dir}/references/{blast_stemFilename}ref.fasta", "fasta").seq)
+        amplicon_AA = translate_dna2aa(amplicon_seq)
+
+        roi_startidx = amplicon_seq.find(roi_startseq)
+        roi_endidx = amplicon_seq.find(roi_endseq)+len(roi_endseq)
+        insert_DNA = amplicon_seq[roi_startidx:roi_endidx]
+        insert_AA = translate_dna2aa(insert_DNA)
+
+
+                
+        all_enrichments = {read_dir:{} for read_dir in read_directions}
+
+        for read_dir in read_directions:
+
+            FigFolder = f"{os.getcwd()}/output/{variant}/blast00/{read_dir}/plots/{data_type}"
+            if not os.path.exists(FigFolder):
+                os.makedirs(FigFolder)
+
+            OutputFolder = f"{os.getcwd()}/output/{variant}/blast00/{read_dir}/enrichments/{data_type}"
+            if not os.path.exists(OutputFolder):
+                os.makedirs(OutputFolder)
+
+
+            if not os.path.exists(f"{data_dir}/blast/alignments/{blast_stemFilename}{read_dir}.out"):
+                print("Blast output file does not exist, please check the blast output file path")
+                exit
+        
+            # Open the blast output file and load it as a dictionary
+            print("################",  read_dir,   "################")
+
+            with open(f"{data_dir}/blast/alignments/{blast_stemFilename}{read_dir}.out", "r") as file:
+                blast_output = json.load(file)
+
+            blast_alignments = blast_output["BlastOutput2"][0]["report"]["results"]["search"]["hits"].copy()
+
+            ### filter blast alignments for regions that include the region of interest (e.g. LOV2 insertion site) (span at least 10 nucleotides before and after the region)
+            print(len(blast_alignments), "total alignments")
+
+            if filter_for_reads_with_roi:
+                print("Filtering for reads with region of interest")
+                filter_for_region = roi_startidx if read_dir=="R1" else roi_endidx
+
+                blast_alignments = [alignment for alignment in blast_alignments if alignment["hsps"][0]["query_from"] <= filter_for_region-10 and alignment["hsps"][0]["query_to"] >= filter_for_region+10]
+
+                print(len(blast_alignments), "alignments after filtering filtering for reads with region of interest")
+
+            cut_site_seq = roi_startseq if read_dir=="R1" else roi_endseq
+
+            print(read_dir, ": dividing reads at site", cut_site_seq)
+            linker_alignments, LOV2_alignments = divide_alignments(blast_alignments, cut_site_seq, read_dir=read_dir)
+
+            all_variants, indels_freq,  enrichment_counts, enrichment_relative = characterize_DMS_blast_alignment(LOV2_alignments, ref = insert_DNA , data_type=data_type,read_dir=read_dir, exclude_not_covered_regions=False)
+            all_variants = pd.DataFrame.from_dict(all_variants)
+
+
+            ###### first, analyze the enrichment within the insert
+            print("analyze enrichment within the insert for", read_dir)
+            if data_type == "AA":
+                annot_ref = insert_AA[:enrichment_relative.shape[1]] if read_dir == "R1" else insert_AA[-enrichment_relative.shape[1]:]
+            if data_type == "DNA":
+                annot_ref = insert_DNA[:enrichment_relative.shape[1]] if read_dir == "R1" else insert_DNA[-enrichment_relative.shape[1]:]
+
+            #####set columns with lower coverage than min_coverage to na
+            coverages = all_variants.sum()
+
+            all_variants.loc[:,coverages < min_coverage] = 0
+            enrichment_counts.loc[:,coverages < min_coverage] = np.nan
+            enrichment_relative.loc[:, coverages < min_coverage] = np.nan
+
+            all_enrichments[read_dir] = {"all_variants":all_variants, 
+                                         "indels_freq":indels_freq, 
+                                         "enrichment_counts":enrichment_counts, "enrichment_relative":enrichment_relative, 
+                                         }
+
+
+            filename = f"{variant}_{Bc}_{Section}_{read_dir}_{data_type}"
+
+            plot_mutation_enrichment(enrichment_relative, ref_seq=annot_ref, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None)
+            plt.close()
+
+            plt.figure(figsize=(20,10))
+            plt.plot(indels_freq.columns, indels_freq.loc["insertion"], color = "blue", alpha = 0.5, label = "insertions")
+            plt.plot(indels_freq.columns, indels_freq.loc["deletion"], color = "orange", alpha = 0.5, label = "deletions")
+            plt.legend()
+            if read_dir == "R1":
+                plt.xlim(0,250)
+            else: 
+                plt.xlim(200,len(insert_DNA))
+            plt.ylabel("Frequency")
+            plt.xlabel("Position in LOV2 gene")
+            plt.savefig(f"{FigFolder}/{filename}_indel_distribution.pdf", bbox_inches="tight")
+            plt.savefig(f"{FigFolder}/{filename}_indel_distribution.png", bbox_inches="tight")
+            plt.close()
+
+            ###### secondly, analyze the linker variants
+            if data_type == "AA":
+                print("analyze linker variants for", read_dir)
+                linkers = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = "SG" if read_dir=="R1" else "GS",read_dir=read_dir)
+
+                ## sort linkers by frequency
+                linkers_sorted = {k: v for k, v in sorted(linkers.items(), key=lambda item: item[1], reverse=True)}
+                total_reads = sum(linkers_sorted.values())
+                linkers_sorted_perc = {k: v/total_reads*100 for k, v in linkers_sorted.items()}
+
+                # exclude wt: 
+                linkers_sorted_perc.pop("wt")
+                linkers_perc_filt = {k: v for k, v in linkers_sorted_perc.items() if v > 0.05}
+
+                ### plot linker variants
+                fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+                plt.bar(linkers_perc_filt.keys(), linkers_perc_filt.values())
+                plt.xticks(rotation=90)
+                plt.ylabel("Percentage of reads")
+                plt.text(0.9, 0.93, f"Total mutation rate: {round(sum(linkers_perc_filt.values()),3)}", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+                plt.title(f"Linker variants for {read_dir}")
+                plt.savefig(f"{FigFolder}/{filename}_linker_distribution.pdf", bbox_inches="tight")
+                plt.savefig(f"{FigFolder}/{filename}_linker_distribution.png", bbox_inches="tight")
+                plt.close()
+                
+                linkers_perc_filt = pd.DataFrame.from_dict(linkers_perc_filt, orient="index")
+                linkers_perc_filt.to_csv(f"{OutputFolder}/{filename}_linker_distribution.csv")
+
+            ### save all enrichments
+            all_enrichments[read_dir]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
+            all_enrichments[read_dir]["all_variants"].to_csv(f"{OutputFolder}/{filename}_all_variants.csv")
+            all_enrichments[read_dir]["indels_freq"].to_csv(f"{OutputFolder}/{filename}_indels.csv")
+            all_enrichments[read_dir]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")
+
+
+        #### combine enrichment for R1 and R2
+        FigFolder = f"{os.getcwd()}/output/{variant}/blast00/combined/plots/{data_type}"
+        if not os.path.exists(FigFolder):
+            os.makedirs(FigFolder)
+
+
+        OutputFolder = f"{os.getcwd()}/output/{variant}/blast00/combined/enrichments/{data_type}"
+        if not os.path.exists(OutputFolder):
+            os.makedirs(OutputFolder)
+
+        all_enrichments["combined"] = {}
+
+        ## total variants of R1 and R2
+        
+        all_enrichments["combined"]["all_variants"] =  all_enrichments["R1"]["all_variants"] + all_enrichments["R2"]["all_variants"]
+
+        ## total enrichments of R1 and R2
+
+        all_enrichments["combined"]["enrichment_counts"], all_enrichments["combined"]["enrichment_relative"] = mask_ref_in_variants_df(all_enrichments["combined"]["all_variants"], ref_seq=insert_DNA if data_type == "DNA" else insert_AA, data_type=data_type, reverse = True if read_dir == "R2" else False)
+        
+
+        ### combine indels of R1 and R2
+        all_enrichments["combined"]["indels_freq"] =  all_enrichments["R1"]["indels_freq"] + all_enrichments["R2"]["indels_freq"]
+
+        filename = f"{variant}_{Bc}_{Section}_combined_{data_type}"
+
+        print("analyze enrichment within the insert for combined reads")
+        plot_mutation_enrichment(all_enrichments["combined"]["enrichment_relative"] , ref_seq=insert_DNA if data_type =="DNA" else insert_AA, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None)
+
+        plt.figure(figsize=(20,10))
+        plt.plot(all_enrichments["combined"]["indels_freq"].columns, all_enrichments["combined"]["indels_freq"].loc["insertion"], color = "blue", alpha = 0.5, label = "insertions")
+        plt.plot(all_enrichments["combined"]["indels_freq"].columns, all_enrichments["combined"]["indels_freq"].loc["deletion"], color = "orange", alpha = 0.5, label = "deletions")
+        plt.legend()
+        plt.ylabel("Frequency")
+        plt.xlabel("Position in LOV2 gene")
+        plt.savefig(f"{FigFolder}/{filename}_indel_distribution.pdf", bbox_inches="tight")
+        plt.savefig(f"{FigFolder}/{filename}_indel_distribution.png", bbox_inches="tight")
+        plt.close()
+
+        ### save all enrichments
+        all_enrichments["combined"]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
+        all_enrichments["combined"]["all_variants"].to_csv(f"{OutputFolder}/{filename}_all_variants.csv")
+        all_enrichments["combined"]["indels_freq"].to_csv(f"{OutputFolder}/{filename}_indels.csv")
+        all_enrichments["combined"]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")

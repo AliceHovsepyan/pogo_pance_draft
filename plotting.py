@@ -152,9 +152,9 @@ def plot_mutation_enrichment(variants_df,
             os.makedirs(FigFolder)
         plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.pdf", bbox_inches="tight")
         plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.png", bbox_inches="tight")
-
-    plt.show()
-    plt.clf()
+    else:
+        plt.show()
+    plt.close()
 
 
 def compare_mut_enrichement(read_dict, 

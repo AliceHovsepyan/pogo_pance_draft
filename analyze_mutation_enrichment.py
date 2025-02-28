@@ -151,7 +151,7 @@ for data_type in datatypes:
                     blast_alignments = [alignment for alignment in blast_alignments if alignment["hsps"][0]["query_from"] <= filter_for_region-10 and alignment["hsps"][0]["query_to"] >= filter_for_region+10]
 
                     print(len(blast_alignments), "alignments after filtering filtering for reads with region of interest")
-
+ 
                 alignments = restructure_alignments(blast_alignments, query_seq=amplicon_seq, read_dir=read_dir) ## get hseqs, qseqs, midline
 
                 #### calculate enrichments
@@ -177,10 +177,12 @@ for data_type in datatypes:
                     enrichment_relative.columns = idxs_in_full_reference
 
                 ### store enrichments
-                all_enrichments[read_dir]["all_variants"] = all_variants.iloc[:,cut_start_idx:cut_end_idx]
-                all_enrichments[read_dir]["indels_freq"] = indels_freq.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indels_freq.iloc[:,cut_start_idx*3:cut_end_idx*3]
-                all_enrichments[read_dir]["enrichment_counts"] = enrichment_counts.iloc[:,cut_start_idx:cut_end_idx]
-                all_enrichments[read_dir]["enrichment_relative"] = enrichment_relative.iloc[:,cut_start_idx:cut_end_idx]
+                all_enrichments[read_dir] = {
+                    "all_variants": all_variants.iloc[:,cut_start_idx:cut_end_idx],
+                    "indels_freq": indels_freq.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indels_freq.iloc[:,cut_start_idx*3:cut_end_idx*3],
+                    "enrichment_counts": enrichment_counts.iloc[:,cut_start_idx:cut_end_idx],
+                    "enrichment_relative": enrichment_relative.iloc[:,cut_start_idx:cut_end_idx]
+                }
                 ### print(all_enrichments[read_dir]["all_variants"])
 
                 # ###set columns with lower coverage than min_coverage to na
