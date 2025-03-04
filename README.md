@@ -1,6 +1,6 @@
 
-# Final pipeline 
-
+# Illumina
+## Final pipeline
 ### input 
 as input, we provide: 
 1. a **json** file, in which arguments for filtering, and demultiplexing are specified (thereby, we can later also track which settings were used)
@@ -63,3 +63,32 @@ all of the steps below, are included in the `filter_and_demultiplex_reads.py` fi
 
 start pymol in terminal: 
 `pymol`
+
+
+# Nanopore
+## Preprocessing and quality assessment
+
+1. Nanopore sequencing with Minknow software
+	- thereby, reads are quality filtered so that only reads with a phred score >= 8 are kept
+	
+2. perform .bam (alignment) files with the Minknow/Nanopore  software
+	-> reads were aligned to the respective AraC-S170-LOV2 reference (R2/R5)
+	-> bc01-05: R2
+	-> bc06-09: R5
+	
+3. put reads in right frame, i.e.: 
+	- if there is a deletion in a read, this is shown as "-"
+	- if there is an insertion in a read, this base is skipped
+	- the remaining read is kept as it is 
+
+	- also: reads are cut so that all start at the same position (here, we consider reads that include ref pos 9 (arbitrary choice))
+
+	- therefore, we run the `process_Nanopore_reads.py ` file e.g.:
+		`python process_Nanopore_reads.py /var/lib/minknow/data/basecalling/pass/barcode05/alignment/ /home/student/anna/DMS_analysis/data/Nanopore/barcode05 /var/lib/minknow/data/AraC_S170_LOV_R2_ref.fa`
+	
+4. run general quality control plotting using `NanoPlot`
+	- either, to run on one (or more) bam files (thereby specifying the files themselves)
+		`NanoPlot -t 2 --bam alignment1.bam alignment2.bam alignment3.bam -o bamplots_downsampled`
+	- or, to run the analysis on **all** .bam files within a folder using the `Nanopore_quality_control.py` file: 
+		`python Nanopore_quality_control.py /var/lib/minknow/data/basecalling/pass/barcode09/alignment /home/student/anna/DMS_analysis/output/Nanopore/barcode09/quality_control`
+
