@@ -60,7 +60,7 @@ def translate_dna2aa(orf: str) -> str:
     try:
       protein += genetic_code[orf[i:i + 3]]
     except KeyError:
-      break
+      protein += 'X' #break
   return protein
 
 
