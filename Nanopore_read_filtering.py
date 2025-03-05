@@ -25,13 +25,21 @@ if __name__ == "__main__":
 
 
     print(f"running Nanoplot on {input_folder}...")
-    files =  [os.path.join(input_folder, f) for f in os.listdir(input_folder) if f.endswith('.bam')]#bam fastq.gz
+    input_files =  [f for f in os.listdir(input_folder) if f.endswith(".fastq.gz")]
 
+    
+    # Define input and output directories
 
-    subprocess.run([
-        "NanoPlot",  # Use "blastp" for proteins
-        "-t", "2",
-        "--bam", *files, #bam
-        "-o", str(output_folder),
-        "-f", "pdf",
-    ], check=True)
+    # Loop through all `.fastq.gz` files in the input directory
+    for input_file in  input_files:
+        print(f"Processing {input_file}")
+        
+        output_file = f"{output_folder}/{input_file}"
+
+        # Construct and run the command
+        command = f"chopper -q 15 --minlength 1800 --maxlength 2100 -i {input_folder}/{input_file} | gzip > {output_file}"
+        print(f"Processing {input_file} -> {output_file}")
+
+        subprocess.run(command, shell=True, check=True)
+
+    print("Processing complete!")

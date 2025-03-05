@@ -18,7 +18,7 @@ from matplotlib.lines import Line2D
 import json
 import shutil
 
-from evaluation_functions import read_filtering, read_sequences, get_variants, demultiplex_reads, compare_mut_enrichement
+from DMS_analysis.old_analysis.evaluation_functions import read_filtering, read_sequences, get_variants, demultiplex_reads, compare_mut_enrichement
 from importlib import reload
 
 base_dir = os.getcwd()

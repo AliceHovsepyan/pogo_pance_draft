@@ -146,3 +146,68 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
     
 
     return all_variants, enrichment_counts,enrichment_relative, indels_freq
+
+import re
+
+def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
+    bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
+    all_reads = []
+    indels = pd.DataFrame(columns=range(len(ref)), index=["I", "D"], data=0)
+
+    cigar_pattern = re.compile(r"(\d+)([MIDNSHP=X])")  # Regex to extract (length, operation)
+
+    for file_nr, bamfile_name in enumerate(bam_files):
+        bam_path = os.path.join(input_folder, bamfile_name)
+        bamfile = pysam.AlignmentFile(bam_path, "rb")
+
+        print("Status:", file_nr + 1, "/", len(bam_files), "done")
+
+        for read in bamfile.fetch():
+            if read.is_unmapped or read.query_sequence is None:
+                print(f"Skipping read {read.query_name}")
+                continue
+
+            alignment_start = read.reference_start
+            seq = read.query_sequence
+            refined_seq_list = []
+            ref_pos = 0  # Reference position in the read
+
+            cigar_operations = [(int(length), op) for length, op in cigar_pattern.findall(read.cigarstring)]
+
+            query_pos = 0  # Track position in the read sequence
+            ref_pos = alignment_start  # Start position in reference
+
+            for length, operation in cigar_operations:
+                if operation == "M":  # Matches (or mismatches)
+                    refined_seq_list.extend(seq[query_pos:query_pos + length])
+                    query_pos += length
+                    ref_pos += length
+                elif operation == "I":  # Insertion (extra bases in read)
+                    indels.loc["I", ref_pos] += 1# length
+                    query_pos += length
+                elif operation == "D":  # Deletion (missing bases in read)
+                    refined_seq_list.extend("-" * length)
+                    indels.loc["D",ref_pos] += 1#length
+                    ref_pos += length
+                elif operation == "N":  # Skipped region in reference
+                    ref_pos += length
+                elif operation == "S":  # Soft clipping (ignored bases at ends)
+                    query_pos += length
+                elif operation == "H":  # Hard clipping (ignored bases, not in read)
+                    continue
+                elif operation == "P":  # Padding (shouldn't appear in nanopore data)
+                    continue
+
+            refined_seq = "".join(refined_seq_list)
+
+            # Cut off bases from the start if needed
+            if alignment_start < cut_n_bases_from_start:
+                cut_start = cut_n_bases_from_start - alignment_start
+                refined_seq = refined_seq[cut_start:]
+
+            all_reads.append(refined_seq)
+
+        print(f"Processed {bamfile_name}")
+
+    print("Total reads:", len(all_reads))
+    return all_reads, indels

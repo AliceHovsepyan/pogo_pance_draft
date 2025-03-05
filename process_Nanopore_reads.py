@@ -4,7 +4,7 @@ import argparse
 from Bio import SeqIO
 import pandas as pd
 import csv
-from Nanopore_functions import read_cleaning
+from Nanopore_functions import read_cleaning_
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Filter and demultiplex reads.")
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     ref = str(SeqIO.read(ref_path, "fasta").seq)
 
 
-    all_reads, indels = read_cleaning(input_folder, ref, cut_n_bases_from_start)
+    all_reads, indels = read_cleaning_(input_folder, ref, cut_n_bases_from_start)
 
     ### save cleaned reads
     if not os.path.exists(output_folder):
