@@ -205,7 +205,7 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
                 cut_start = cut_n_bases_from_start - alignment_start
                 refined_seq = refined_seq[cut_start:]
 
-            all_reads.append(refined_seq)
+                all_reads.append(refined_seq)
 
         print(f"Processed {bamfile_name}")
 
