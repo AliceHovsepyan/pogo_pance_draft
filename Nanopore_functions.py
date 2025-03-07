@@ -4,79 +4,83 @@ import os
 from Bio import SeqIO
 from DMS_utils import translate_dna2aa
 from functions_ import mask_ref_in_variants_df
+import numpy as np
 
-def read_cleaning(input_folder,  ref, cut_n_bases_from_start = 9):
 
-    bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
-    all_reads = []
-    #all_ids = []
-    indels = pd.DataFrame(columns = (range(len(ref))), index = ["I", "D"], data = 0)
 
-    for file_nr, bamfile_name in enumerate(bam_files):
+# def read_cleaning(input_folder,  ref, cut_n_bases_from_start = 9):
 
-        bam_path = os.path.join(input_folder, bamfile_name)  
-        bamfile = pysam.AlignmentFile(bam_path, "rb") 
-        # get_aligned_pairs(self, matches_only=False, with_seq=False, with_cigar=False)
-        # a list of aligned read (query) and reference positions.
-        # Each item in the returned list is a tuple consisting of the 0-based offset from the start of the read sequence followed by the 0-based reference position.
-        # For inserts, deletions, skipping either query or reference position may be None.
-        # For padding in the reference, the reference position will always be None.
-        print("Status:", file_nr, "/", len(bam_files), "done")
-        # Iterate over reads in the SAM file
-        for read in bamfile.fetch():
-            if read.is_unmapped or read.query_sequence is None:
-                print(f"Skipping read {read.query_name}")
-                continue 
+#     bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
+#     all_reads = []
+#     #all_ids = []
+#     indels = pd.DataFrame(columns = (range(len(ref))), index = ["I", "D"], data = 0)
 
-            alignment_start = read.reference_start 
-            seq = read.query_sequence
-            refined_seq_list = []
+#     for file_nr, bamfile_name in enumerate(bam_files):
 
-            for cigar_tuple in read.get_aligned_pairs(with_seq=True, with_cigar=True): 
-                if cigar_tuple[-1].value == 0: ## MATCH
-                    refined_seq_list.append(seq[cigar_tuple[0]])
+#         bam_path = os.path.join(input_folder, bamfile_name)  
+#         bamfile = pysam.AlignmentFile(bam_path, "rb") 
+#         # get_aligned_pairs(self, matches_only=False, with_seq=False, with_cigar=False)
+#         # a list of aligned read (query) and reference positions.
+#         # Each item in the returned list is a tuple consisting of the 0-based offset from the start of the read sequence followed by the 0-based reference position.
+#         # For inserts, deletions, skipping either query or reference position may be None.
+#         # For padding in the reference, the reference position will always be None.
+#         print("Status:", file_nr, "/", len(bam_files), "done")
+#         # Iterate over reads in the SAM file
+#         for read in bamfile.fetch():
+#             if read.is_unmapped or read.query_sequence is None:
+#                 print(f"Skipping read {read.query_name}")
+#                 continue 
 
-                elif cigar_tuple[-1].value == 1: ## INSERTION
-                    indels.loc["I", len(refined_seq_list)] += 1
+#             alignment_start = read.reference_start 
+#             seq = read.query_sequence
+#             refined_seq_list = []
 
-                elif cigar_tuple[-1].value == 2: ## DELETION
-                    refined_seq_list.append("-")
-                    indels.loc["D", cigar_tuple[1]] += 1
+#             for cigar_tuple in read.get_aligned_pairs(with_seq=True, with_cigar=True): 
+#                 if cigar_tuple[-1].value == 0: ## MATCH
+#                     refined_seq_list.append(seq[cigar_tuple[0]])
 
-                # elif cigar_tuple[-1].value == 3: ## SKIPPED REGION i.e. "deletion"
-                #     refined_seq_list.append("-")
-                #     indels.loc["N", cigar_tuple[1]] += 1
+#                 elif cigar_tuple[-1].value == 1: ## INSERTION
+#                     indels.loc["I", len(refined_seq_list)] += 1
+
+#                 elif cigar_tuple[-1].value == 2: ## DELETION
+#                     refined_seq_list.append("-")
+#                     indels.loc["D", cigar_tuple[1]] += 1
+
+#                 # elif cigar_tuple[-1].value == 3: ## SKIPPED REGION i.e. "deletion"
+#                 #     refined_seq_list.append("-")
+#                 #     indels.loc["N", cigar_tuple[1]] += 1
                 
-                # elif cigar_tuple[-1] == 4: ## SOFT CLIPPING
-                #     continue ## skip the soft clipped bases
+#                 # elif cigar_tuple[-1] == 4: ## SOFT CLIPPING
+#                 #     continue ## skip the soft clipped bases
 
-                # elif cigar_tuple[-1] == 5: ## HARD CLIPPING
-                #     continue
+#                 # elif cigar_tuple[-1] == 5: ## HARD CLIPPING
+#                 #     continue
                     
-                # elif cigar_tuple[-1] == 6: ## PADDING
-                #     print("Padding")
+#                 # elif cigar_tuple[-1] == 6: ## PADDING
+#                 #     print("Padding")
                 
-                # elif cigar_tuple[-1] == 7: ## SEQ MATCH
-                #     refined_seq_list.append( seq[cigar_tuple[0]])
+#                 # elif cigar_tuple[-1] == 7: ## SEQ MATCH
+#                 #     refined_seq_list.append( seq[cigar_tuple[0]])
 
-                # elif cigar_tuple[-1] == 8: ## SEQ MISMATCH
-                #     refined_seq_list.append( seq[cigar_tuple[0]])
+#                 # elif cigar_tuple[-1] == 8: ## SEQ MISMATCH
+#                 #     refined_seq_list.append( seq[cigar_tuple[0]])
 
-                # elif cigar_tuple[-1] == 9: ## CBACK
-                #     print("CBACK")
-                refined_seq = "".join(refined_seq_list)
+#                 # elif cigar_tuple[-1] == 9: ## CBACK
+#                 #     print("CBACK")
+#                 refined_seq = "".join(refined_seq_list)
 
-            if alignment_start < cut_n_bases_from_start: 
-                cut_start = cut_n_bases_from_start-alignment_start
-                refined_seq = refined_seq[cut_start:]
-                all_reads.append(refined_seq)
-                #all_ids.append(read.query_name)
+
+#             if alignment_start < cut_n_bases_from_start: 
+#                 cut_start = cut_n_bases_from_start-alignment_start
+#                 refined_seq = refined_seq[cut_start:]
+#                 all_reads.append(refined_seq)
+#                 #all_ids.append(read.query_name)
                 
-        print(f"Processed {bamfile_name}")
+#         print(f"Processed {bamfile_name}")
 
-    print("total reads:", len(all_reads))
+#     print("total reads:", len(all_reads))
 
-    return all_reads, indels
+#     return all_reads, indels
 
 
 
@@ -153,6 +157,7 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
     bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
     all_reads = []
     indels = pd.DataFrame(columns=range(len(ref)), index=["I", "D"], data=0)
+    all_qualities = []
 
     cigar_pattern = re.compile(r"(\d+)([MIDNSHP=X])")  # Regex to extract (length, operation)
 
@@ -169,6 +174,8 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
 
             alignment_start = read.reference_start
             seq = read.query_sequence
+            qualitities = read.query_qualities
+            refined_qualities = []
             refined_seq_list = []
             ref_pos = 0  # Reference position in the read
 
@@ -180,12 +187,14 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
             for length, operation in cigar_operations:
                 if operation == "M":  # Matches (or mismatches)
                     refined_seq_list.extend(seq[query_pos:query_pos + length])
+                    refined_qualities.extend(qualitities[query_pos:query_pos + length])
                     query_pos += length
                     ref_pos += length
                 elif operation == "I":  # Insertion (extra bases in read)
                     indels.loc["I", ref_pos] += 1# length
                     query_pos += length
                 elif operation == "D":  # Deletion (missing bases in read)
+                    refined_qualities.extend([np.nan] * length)
                     refined_seq_list.extend("-" * length)
                     indels.loc["D",ref_pos] += 1#length
                     ref_pos += length
@@ -204,10 +213,12 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
             if alignment_start < cut_n_bases_from_start:
                 cut_start = cut_n_bases_from_start - alignment_start
                 refined_seq = refined_seq[cut_start:]
+                refined_qualities = refined_qualities[cut_start:]
 
                 all_reads.append(refined_seq)
+                all_qualities.append(refined_qualities)
 
         print(f"Processed {bamfile_name}")
 
     print("Total reads:", len(all_reads))
-    return all_reads, indels
+    return all_reads, indels, all_qualities

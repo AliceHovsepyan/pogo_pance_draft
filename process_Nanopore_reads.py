@@ -36,7 +36,7 @@ if __name__ == "__main__":
     ref = str(SeqIO.read(ref_path, "fasta").seq)
 
 
-    all_reads, indels = read_cleaning_(input_folder, ref, cut_n_bases_from_start)
+    all_reads, indels, all_qualitities = read_cleaning_(input_folder, ref, cut_n_bases_from_start)
 
     ### save cleaned reads
     if not os.path.exists(output_folder):
@@ -58,6 +58,11 @@ if __name__ == "__main__":
     indels.to_csv(f"{output_folder}/indels.csv") 
 
     print(f"Saved indels to {output_folder}/indels.csv")
+
+    with open(f"{output_folder}/cleaned_reads_base_qualitities.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        for item in all_qualitities:
+            writer.writerow(item)
 
     print("Done!")
 
