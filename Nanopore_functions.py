@@ -194,7 +194,7 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
                     indels.loc["I", ref_pos] += 1# length
                     query_pos += length
                 elif operation == "D":  # Deletion (missing bases in read)
-                    refined_qualities.extend([np.nan] * length)
+                    refined_qualities.extend([""] * length)
                     refined_seq_list.extend("-" * length)
                     indels.loc["D",ref_pos] += 1#length
                     ref_pos += length

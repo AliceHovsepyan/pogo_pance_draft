@@ -25,13 +25,15 @@ if __name__ == "__main__":
 
 
     print(f"running Nanoplot on {input_folder}...")
-    files =  [os.path.join(input_folder, f) for f in os.listdir(input_folder) if f.endswith('.bam')]#bam fastq.gz
+    filetype = '.fastq' if '.fastq.gz' in os.listdir(input_folder)[0] else '.bam'
+    fileend = '.fastq.gz' if filetype == '.fastq' else '.bam'
+    files =  [os.path.join(input_folder, f) for f in os.listdir(input_folder) if f.endswith(fileend)]#bam fastq.gz
 
 
     subprocess.run([
         "NanoPlot",  # Use "blastp" for proteins
         "-t", "2",
-        "--bam", *files, #bam
+        f"--{filetype[1:]}", *files, #bam
         "-o", str(output_folder),
         "-f", "pdf",
     ], check=True)

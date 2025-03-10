@@ -58,11 +58,9 @@ if __name__ == "__main__":
     indels.to_csv(f"{output_folder}/indels.csv") 
 
     print(f"Saved indels to {output_folder}/indels.csv")
-
     with open(f"{output_folder}/cleaned_reads_base_qualitities.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        for item in all_qualitities:
-            writer.writerow(item)
+        writer.writerows(all_qualitities)
 
     print("Done!")
 

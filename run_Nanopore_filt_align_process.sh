@@ -2,9 +2,9 @@
 
 barcode="barcode09"
 # Define input variables
-raw_fastq_input_folder="/var/lib/minknow/data/basecalling/pass/$barcode"
-output_folder="/home/student/anna/DMS_analysis/data/Nanopore/$barcode/filtered_Q15_maxminlen"
-output_plot_folder="/home/student/anna/DMS_analysis/output/Nanopore/$barcode/filtered_Q15_maxminlen/quality_control"
+raw_fastq_input_folder="/var/lib/minknow/data/P0109/basecalling/pass/$barcode"
+output_folder="/home/student/anna/DMS_analysis/data/Nanopore/$barcode/highly_accurate_basecalling/filtered_Q20_maxminlen"
+output_plot_folder="/home/student/anna/DMS_analysis/output/Nanopore/$barcode/highly_accurate_basecalling/filtered_Q20_maxminlen/quality_control"
 reference_file="/home/student/anna/DMS_analysis/data/Nanopore/AraC_S170_LOV_R5_ref.fa"
 
 # Run Python scripts sequentially
