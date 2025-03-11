@@ -20,88 +20,88 @@ from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 
 
-def find_(string, 
-         value_list
-         ):
-    """
-    find the first occurence of a value in a list of values (read quality scores) in a string (read qualities)
-    """
+# def find_(string, 
+#          value_list
+#          ):
+#     """
+#     find the first occurence of a value in a list of values (read quality scores) in a string (read qualities)
+#     """
     
-    indexes = [string.find(letter) for letter in value_list]
-    try: 
-        ind = min([index for index in indexes if index != -1])
-    except:
-        ind = 400
-    return ind
+#     indexes = [string.find(letter) for letter in value_list]
+#     try: 
+#         ind = min([index for index in indexes if index != -1])
+#     except:
+#         ind = 400
+#     return ind
 
-def read_sequences(variant, 
-                   catch_left, 
-                   catch_right, 
-                   base_dir = None, 
-                   arbitrary_cutoff_a = None, 
-                   arbitrary_cutoff_b = None, 
-                   quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], 
-                   return_qualities_ids = False):
-    """
-    read sequences from fastq files while filtering for quality score (read is aborted at first base with higher error rate than (defaut) 1%)
+# def read_sequences(variant, 
+#                    catch_left, 
+#                    catch_right, 
+#                    base_dir = None, 
+#                    arbitrary_cutoff_a = None, 
+#                    arbitrary_cutoff_b = None, 
+#                    quality_score = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*','+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5'], 
+#                    return_qualities_ids = False):
+#     """
+#     read sequences from fastq files while filtering for quality score (read is aborted at first base with higher error rate than (defaut) 1%)
 
-    variant: variant name of the fastq files, which follow this structure {variant}_R1_001.fastq and {variant}_R2_001.fastq
-    catch_left, catch_right: start (end) of the sequence in the forward read (R1) (reverse read (R2)), e.g. Barcodes and/or primers (will not be included in the analysis)
-    base_dir: directory where the fastq files are stored (default: current working directory)
-    arbitrary_cutoff_a: at which position to arbitrary cut off all forward reads that already went through quality score filtering (= max length of R1 reads) (default: None)
-    arbitrary_cutoff_b: at which position to arbitrary cut off all backward reads that already went through quality score filtering (= max length of R2 reads) (default: None)
-    return_qualities_ids =  whether or not to return lists of R1 qualities, R2 qualities, R1 ids, R2 ids (default: False)
-    quality_score: list of quality scores, at which the reads should be aborted (default: 1% error rate)
+#     variant: variant name of the fastq files, which follow this structure {variant}_R1_001.fastq and {variant}_R2_001.fastq
+#     catch_left, catch_right: start (end) of the sequence in the forward read (R1) (reverse read (R2)), e.g. Barcodes and/or primers (will not be included in the analysis)
+#     base_dir: directory where the fastq files are stored (default: current working directory)
+#     arbitrary_cutoff_a: at which position to arbitrary cut off all forward reads that already went through quality score filtering (= max length of R1 reads) (default: None)
+#     arbitrary_cutoff_b: at which position to arbitrary cut off all backward reads that already went through quality score filtering (= max length of R2 reads) (default: None)
+#     return_qualities_ids =  whether or not to return lists of R1 qualities, R2 qualities, R1 ids, R2 ids (default: False)
+#     quality_score: list of quality scores, at which the reads should be aborted (default: 1% error rate)
 
-    returns: list of  R1 sequences, R2 sequences (and optionally R1 qualities, R2 qualities, R1 ids, R2 ids)
-    """
+#     returns: list of  R1 sequences, R2 sequences (and optionally R1 qualities, R2 qualities, R1 ids, R2 ids)
+#     """
 
-    if not base_dir:
-        base_dir = os.getcwd() + "/data/fastq/"
+#     if not base_dir:
+#         base_dir = os.getcwd() + "/data/fastq/"
 
-    a_sequences = []
-    b_sequences = []
-    a_qualities = []
-    b_qualities = []
-    a_ids = []
-    b_ids = []
+#     a_sequences = []
+#     b_sequences = []
+#     a_qualities = []
+#     b_qualities = []
+#     a_ids = []
+#     b_ids = []
 
-    with open(f'{base_dir}/{variant}_R1_001.fastq', "rt") as a_file, open(f'{base_dir}/{variant}_R2_001.fastq', "rt") as b_file:
+#     with open(f'{base_dir}/{variant}_R1_001.fastq', "rt") as a_file, open(f'{base_dir}/{variant}_R2_001.fastq', "rt") as b_file:
 
-        a_reader = QualityIO.FastqGeneralIterator(a_file)
-        b_reader = QualityIO.FastqGeneralIterator(b_file)
+#         a_reader = QualityIO.FastqGeneralIterator(a_file)
+#         b_reader = QualityIO.FastqGeneralIterator(b_file)
         
-        for total_read, (a, b) in enumerate(zip(a_reader, b_reader)):
+#         for total_read, (a, b) in enumerate(zip(a_reader, b_reader)):
                 
-                a_id, a_seq, a_qual = a
-                b_id, b_seq, b_qual = b
-                cutoff_a = find_(a_qual, quality_score)
-                cutoff_b = find_(b_qual, quality_score)
+#                 a_id, a_seq, a_qual = a
+#                 b_id, b_seq, b_qual = b
+#                 cutoff_a = find_(a_qual, quality_score)
+#                 cutoff_b = find_(b_qual, quality_score)
 
-                if arbitrary_cutoff_a and catch_left in a_seq: # cut off a_seq to an (arbitrary) chosen maximum length (=arbitrary_cutoff_a)
-                    if cutoff_a > (a_seq.index(catch_left) + arbitrary_cutoff_a):
-                        cutoff_a = a_seq.index(catch_left)  + len(catch_left) + arbitrary_cutoff_a 
+#                 if arbitrary_cutoff_a and catch_left in a_seq: # cut off a_seq to an (arbitrary) chosen maximum length (=arbitrary_cutoff_a)
+#                     if cutoff_a > (a_seq.index(catch_left) + arbitrary_cutoff_a):
+#                         cutoff_a = a_seq.index(catch_left)  + len(catch_left) + arbitrary_cutoff_a 
                 
-                if arbitrary_cutoff_b and dna_rev_comp(catch_right) in b_seq: 
-                    if cutoff_b > (b_seq.index(dna_rev_comp(catch_right)) + arbitrary_cutoff_b):
-                        cutoff_b = b_seq.index(dna_rev_comp(catch_right))+ len(catch_right) + arbitrary_cutoff_b
+#                 if arbitrary_cutoff_b and dna_rev_comp(catch_right) in b_seq: 
+#                     if cutoff_b > (b_seq.index(dna_rev_comp(catch_right)) + arbitrary_cutoff_b):
+#                         cutoff_b = b_seq.index(dna_rev_comp(catch_right))+ len(catch_right) + arbitrary_cutoff_b
 
-                a_sequences.append(a_seq[:cutoff_a])
-                a_qualities.append(a_qual[:cutoff_a])
-                b_sequences.append(b_seq[:cutoff_b])
-                b_qualities.append(b_qual[:cutoff_b])
-                a_ids.append(a_id)
-                b_ids.append(b_id)
+#                 a_sequences.append(a_seq[:cutoff_a])
+#                 a_qualities.append(a_qual[:cutoff_a])
+#                 b_sequences.append(b_seq[:cutoff_b])
+#                 b_qualities.append(b_qual[:cutoff_b])
+#                 a_ids.append(a_id)
+#                 b_ids.append(b_id)
                 
-        print("total reads", total_read+1)
+#         print("total reads", total_read+1)
 
-    if return_qualities_ids:
+#     if return_qualities_ids:
         
-        return a_sequences, b_sequences, a_qualities, b_qualities, a_ids, b_ids 
+#         return a_sequences, b_sequences, a_qualities, b_qualities, a_ids, b_ids 
      
-    else: 
+#     else: 
 
-        return a_sequences, b_sequences
+#         return a_sequences, b_sequences
 
 
 def read_filtering(a_seqs, 
@@ -417,134 +417,134 @@ def get_variants(a_seq,b_seq, ref_prot, ref_gene ,catch_right , catch_left , use
     return variants_dict
 
 
-def demultiplex_reads(a_seqs:list, 
-                      b_seqs:list,
-                      ref_gene:str, 
-                      Barcodes:dict, 
-                      Primer_seq:dict, 
-                      Primer_out_of_triplets:dict,
-                      used_Barcodes:list, 
-                      Sections:list, 
-                      max_mismatch_primerseq:int = 3, 
-                      filter_for_n_mut:bool = True,
-                      filter_for_read_len:bool = False,
-                      read_len_treshold:int = 50,
-                      n_mut_treshold:int = 20, 
-                      a_ids:list = None, 
-                      b_ids:list = None, 
-                      cut_BC_seq = True,
-                      cut_primer_start=True,
-                      catch_left = "",
-                      catch_right = "",
-                      include_only_complete_reads = False):
-    """
-    demultiplex reads from fastq-files, if different samples were pooled and the region of interest was divided into sections for sequencing
+# def demultiplex_reads(a_seqs:list, 
+#                       b_seqs:list,
+#                       ref_gene:str, 
+#                       Barcodes:dict, 
+#                       Primer_seq:dict, 
+#                       Primer_out_of_triplets:dict,
+#                       used_Barcodes:list, 
+#                       Sections:list, 
+#                       max_mismatch_primerseq:int = 3, 
+#                       filter_for_n_mut:bool = True,
+#                       filter_for_read_len:bool = False,
+#                       read_len_treshold:int = 50,
+#                       n_mut_treshold:int = 20, 
+#                       a_ids:list = None, 
+#                       b_ids:list = None, 
+#                       cut_BC_seq = True,
+#                       cut_primer_start=True,
+#                       catch_left = "",
+#                       catch_right = "",
+#                       include_only_complete_reads = False):
+#     """
+#     demultiplex reads from fastq-files, if different samples were pooled and the region of interest was divided into sections for sequencing
     
-    a_seqs, b_seqs: list of forward reads (R1) and reverse reads (R2)
-    ref_gene: reference DNA sequence
-    Barcodes: dictionary with the forward and reverse Barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ... }
-    Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
-    Primer_out_of_triplets: should be a dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... } 
-    used_Barcodes: list of Barcodes from the Barcodes dictionary that were used for the sequencing (should match with names in the Barcodes dict, e.g. BC1, BC2, ...)
-    Sections: list of sections that were sequenced (should match with names in the Primer_seq dict, e.g. S1, S2, ...)
-    max_mismatch_primerseq: maximum number of mismatches allowed in the primer sequences (default: 3)
-    filter_for_n_mut: whether or not to filter for reads with more than n_mut_treshold mutations (default: True), thereby reads that contain frameshifts due to sequencing errors should be excluded
-    n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 20), only used if filter_for_n_mut = True
-    filter_for_read_len: whether or not to filter for read length (default: False), thereby reads that are shorter than read_len_treshold are excluded
-    read_len_treshold: minimum read length (default: 50), only used if filter_for_read_len = True
-    a_ids, b_ids: list of ids for the forward and reverse reads (default: None), if None, no ids are returned
-    cut_BC_seq: whether or not to cut the BC seq from the reads 
-    cut_primer_start: used if cut_BC_seq=True, then, if True, the Nt number specified in Primer_out_of_triplets is additionally cut from the sequence start
+#     a_seqs, b_seqs: list of forward reads (R1) and reverse reads (R2)
+#     ref_gene: reference DNA sequence
+#     Barcodes: dictionary with the forward and reverse Barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ... }
+#     Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
+#     Primer_out_of_triplets: should be a dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... } 
+#     used_Barcodes: list of Barcodes from the Barcodes dictionary that were used for the sequencing (should match with names in the Barcodes dict, e.g. BC1, BC2, ...)
+#     Sections: list of sections that were sequenced (should match with names in the Primer_seq dict, e.g. S1, S2, ...)
+#     max_mismatch_primerseq: maximum number of mismatches allowed in the primer sequences (default: 3)
+#     filter_for_n_mut: whether or not to filter for reads with more than n_mut_treshold mutations (default: True), thereby reads that contain frameshifts due to sequencing errors should be excluded
+#     n_mut_treshold: number of mutations at which a read is excluded from the analysis (default: 20), only used if filter_for_n_mut = True
+#     filter_for_read_len: whether or not to filter for read length (default: False), thereby reads that are shorter than read_len_treshold are excluded
+#     read_len_treshold: minimum read length (default: 50), only used if filter_for_read_len = True
+#     a_ids, b_ids: list of ids for the forward and reverse reads (default: None), if None, no ids are returned
+#     cut_BC_seq: whether or not to cut the BC seq from the reads 
+#     cut_primer_start: used if cut_BC_seq=True, then, if True, the Nt number specified in Primer_out_of_triplets is additionally cut from the sequence start
 
-    returns: dictionary with the reads for each sample and section, optionally also the ids
-    """
+#     returns: dictionary with the reads for each sample and section, optionally also the ids
+#     """
 
-    read_Dict = {}
-    ids_Dict = {}
+#     read_Dict = {}
+#     ids_Dict = {}
 
-    ## split the reads into the samples according to Barcode and Section -> thereby keeping the forward and reverse reads together
-    for Barcode in used_Barcodes: 
+#     ## split the reads into the samples according to Barcode and Section -> thereby keeping the forward and reverse reads together
+#     for Barcode in used_Barcodes: 
 
-        for Section in Sections:
+#         for Section in Sections:
 
-            fwd_BC_Primer_seq = Barcodes[Barcode + "_fwd"] + Primer_seq[Section+"_fwd"]
-            #fwd_BC_Primer_seq = fwd_BC_Primer_seq[:15]
-            rev_BC_Primer_seq = Barcodes[Barcode + "_rev"] + Primer_seq[Section+"_rev"] 
-            #rev_BC_Primer_seq = rev_BC_Primer_seq[:15]
+#             fwd_BC_Primer_seq = Barcodes[Barcode + "_fwd"] + Primer_seq[Section+"_fwd"]
+#             #fwd_BC_Primer_seq = fwd_BC_Primer_seq[:15]
+#             rev_BC_Primer_seq = Barcodes[Barcode + "_rev"] + Primer_seq[Section+"_rev"] 
+#             #rev_BC_Primer_seq = rev_BC_Primer_seq[:15]
 
-            ### select the reads that contain the forward and reverse BC + primer sequences, thereby allowing for n mismatches in the primer sequences but no errors in BCs
-            fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
-            print(fwd_idxs[:10])
+#             ### select the reads that contain the forward and reverse BC + primer sequences, thereby allowing for n mismatches in the primer sequences but no errors in BCs
+#             fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
+#             print(fwd_idxs[:10])
                         
-            rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_rev"] )] == Barcodes[Barcode + "_rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])]) <= max_mismatch_primerseq) ]
-            print(len(rev_idxs))
+#             rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_rev"] )] == Barcodes[Barcode + "_rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])]) <= max_mismatch_primerseq) ]
+#             print(len(rev_idxs))
             
-            indexes = set(
-                [idx for idx in fwd_idxs if b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
-                [idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that match in the fwd and rev BC seqs
+#             indexes = set(
+#                 [idx for idx in fwd_idxs if b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
+#                 [idx for idx in rev_idxs if a_seqs[idx][:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"]])## only keep reads that match in the fwd and rev BC seqs
                 
-            #set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
-            print(sum([len(b_seqs[fwd_i]) <= len(Barcodes[Barcode + "_rev"]) for fwd_i in fwd_idxs]), "b reads are empty") ## reads that are only in the reverse list
-            print(sum([len(a_seqs[rev_i]) <= len(Barcodes[Barcode + "_fwd"]) for rev_i in rev_idxs]), "a reads are empty") ## reads that are only in the reverse list
+#             #set(fwd_idxs + rev_idxs) ## if a read is in both lists, it is only counted once
+#             print(sum([len(b_seqs[fwd_i]) <= len(Barcodes[Barcode + "_rev"]) for fwd_i in fwd_idxs]), "b reads are empty") ## reads that are only in the reverse list
+#             print(sum([len(a_seqs[rev_i]) <= len(Barcodes[Barcode + "_fwd"]) for rev_i in rev_idxs]), "a reads are empty") ## reads that are only in the reverse list
 
-            print(len(indexes), "forward reads with matching BC and primer seq")
-            print(len(set(fwd_idxs+ rev_idxs)) - len(indexes), "reads with index swapping")
-            #print(len(set([i for i in fwd_idxs if len(b_seqs[i]) <= len(rev_BC_Primer_seq)] +[i for i in rev_idxs if len(a_seqs[i]) <= len(fwd_BC_Primer_seq)])))
+#             print(len(indexes), "forward reads with matching BC and primer seq")
+#             print(len(set(fwd_idxs+ rev_idxs)) - len(indexes), "reads with index swapping")
+#             #print(len(set([i for i in fwd_idxs if len(b_seqs[i]) <= len(rev_BC_Primer_seq)] +[i for i in rev_idxs if len(a_seqs[i]) <= len(fwd_BC_Primer_seq)])))
 
-            a_seq_Bc_Sec = [a_seqs[i] for i in indexes]
-            b_seq_Bc_Sec = [b_seqs[i] for i in indexes]
+#             a_seq_Bc_Sec = [a_seqs[i] for i in indexes]
+#             b_seq_Bc_Sec = [b_seqs[i] for i in indexes]
 
-            print(Barcode, Section, len(a_seq_Bc_Sec), "reads before filtering")
+#             print(Barcode, Section, len(a_seq_Bc_Sec), "reads before filtering")
 
 
-            if a_ids and b_ids:
-                a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
-                b_ids_Bc_Sec = [b_ids[i].split(" ")[0]  for i in indexes]
+#             if a_ids and b_ids:
+#                 a_ids_Bc_Sec = [a_ids[i].split(" ")[0] for i in indexes]
+#                 b_ids_Bc_Sec = [b_ids[i].split(" ")[0]  for i in indexes]
 
     
-            if cut_BC_seq: 
-                cutoff_a = len(Barcodes[Barcode + "_fwd"]) if not cut_primer_start else len(Barcodes[Barcode + "_fwd"]) + Primer_out_of_triplets[Section + "_fwd"]
-                cutoff_b = len(Barcodes[Barcode + "_rev"]) if not cut_primer_start else len(Barcodes[Barcode + "_rev"]) + Primer_out_of_triplets[Section + "_rev"]
+#             if cut_BC_seq: 
+#                 cutoff_a = len(Barcodes[Barcode + "_fwd"]) if not cut_primer_start else len(Barcodes[Barcode + "_fwd"]) + Primer_out_of_triplets[Section + "_fwd"]
+#                 cutoff_b = len(Barcodes[Barcode + "_rev"]) if not cut_primer_start else len(Barcodes[Barcode + "_rev"]) + Primer_out_of_triplets[Section + "_rev"]
 
-                a_seq_Bc_Sec = [a[cutoff_a:] if len(a)>=cutoff_a else "" for a in a_seq_Bc_Sec]
-                b_seq_Bc_Sec = [b[cutoff_b:] if len(b)>=cutoff_b else "" for b in b_seq_Bc_Sec]
+#                 a_seq_Bc_Sec = [a[cutoff_a:] if len(a)>=cutoff_a else "" for a in a_seq_Bc_Sec]
+#                 b_seq_Bc_Sec = [b[cutoff_b:] if len(b)>=cutoff_b else "" for b in b_seq_Bc_Sec]
             
-            ## cut sequences at the catch_left and catch_right positions
-            if include_only_complete_reads: ## only include reads that contain the full sequence (i.e. catch_left and catch_right is present)
-                a_seq_Bc_Sec = [read[read.index(catch_left)+len(catch_left):read.index(catch_right)] if catch_left in read and catch_right in read else "" for read in a_seq_Bc_Sec ]
+#             ## cut sequences at the catch_left and catch_right positions
+#             if include_only_complete_reads: ## only include reads that contain the full sequence (i.e. catch_left and catch_right is present)
+#                 a_seq_Bc_Sec = [read[read.index(catch_left)+len(catch_left):read.index(catch_right)] if catch_left in read and catch_right in read else "" for read in a_seq_Bc_Sec ]
 
-                b_seq_Bc_Sec = [read[read.index(dna_rev_comp(catch_right))+len(catch_right):read.index(dna_rev_comp(catch_left))] if dna_rev_comp(catch_right) in read  and dna_rev_comp(catch_left) in read else "" for read in b_seq_Bc_Sec ]
+#                 b_seq_Bc_Sec = [read[read.index(dna_rev_comp(catch_right))+len(catch_right):read.index(dna_rev_comp(catch_left))] if dna_rev_comp(catch_right) in read  and dna_rev_comp(catch_left) in read else "" for read in b_seq_Bc_Sec ]
 
-            else: ## cut sequences at the catch_left and catch_right positions, reads do not have to be complete 
-                a_seq_Bc_Sec = [a[a.index(catch_left)+len(catch_left):] if catch_left in a else "" for a in a_seq_Bc_Sec]
-                b_seq_Bc_Sec = [b[b.index(dna_rev_comp(catch_right))+len(catch_right):] if dna_rev_comp(catch_right) in b else "" for b in b_seq_Bc_Sec]
+#             else: ## cut sequences at the catch_left and catch_right positions, reads do not have to be complete 
+#                 a_seq_Bc_Sec = [a[a.index(catch_left)+len(catch_left):] if catch_left in a else "" for a in a_seq_Bc_Sec]
+#                 b_seq_Bc_Sec = [b[b.index(dna_rev_comp(catch_right))+len(catch_right):] if dna_rev_comp(catch_right) in b else "" for b in b_seq_Bc_Sec]
 
-            # if filter_for_n_mut or filter_for_read_len:
-            #     ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
+#             # if filter_for_n_mut or filter_for_read_len:
+#             #     ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
 
-            #     if cut_BC_seq:
-            #         catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
-            #         catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
-            #     else:
-            #         catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
-            #         catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+#             #     if cut_BC_seq:
+#             #         catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
+#             #         catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
+#             #     else:
+#             #         catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
+#             #         catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
                 
-            #     a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
+#             #     a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
 
-            read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
-            read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
+#             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
+#             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec
 
-            if a_ids and b_ids:
-                ids_Dict[f"{Barcode}_{Section}_R1"] = a_ids_Bc_Sec
-                ids_Dict[f"{Barcode}_{Section}_R2"] = b_ids_Bc_Sec
-            print(f"################# Done: {Barcode} {Section}")
+#             if a_ids and b_ids:
+#                 ids_Dict[f"{Barcode}_{Section}_R1"] = a_ids_Bc_Sec
+#                 ids_Dict[f"{Barcode}_{Section}_R2"] = b_ids_Bc_Sec
+#             print(f"################# Done: {Barcode} {Section}")
 
-        print(f"################# Done: {Barcode}")
-    if a_ids and b_ids:
-        return  read_Dict, ids_Dict
-    else:
-        return read_Dict 
+#         print(f"################# Done: {Barcode}")
+#     if a_ids and b_ids:
+#         return  read_Dict, ids_Dict
+#     else:
+#         return read_Dict 
 
 
 def mask_ref_in_variants_df(variant_df:pd.DataFrame,
@@ -592,28 +592,28 @@ def mask_ref_in_variants_df(variant_df:pd.DataFrame,
     return variant_df, variant_df_relative
 
 
-def find_reference_seq(ref_gene, 
-                       Primer_seq, 
-                       Section, 
-                       Primer_out_of_triplets):
-    """
-    find the reference sequence for a given section within a reference gene, based on the primer sequences (takes into account that the primers can be out of frame (triplets))
+# def find_reference_seq(ref_gene, 
+#                        Primer_seq, 
+#                        Section, 
+#                        Primer_out_of_triplets):
+#     """
+#     find the reference sequence for a given section within a reference gene, based on the primer sequences (takes into account that the primers can be out of frame (triplets))
 
-    ref_gene = reference gene sequence
-    Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
-    Section: Section of interest
-    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... }
+#     ref_gene = reference gene sequence
+#     Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
+#     Section: Section of interest
+#     Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... }
 
-    returns: reference sequence for the given section
-    """ 
-    tripl_st = Primer_out_of_triplets[Section+"_fwd"]
-    tripl_end = Primer_out_of_triplets[Section+"_rev"]
-    primer_fwd = Primer_seq[Section + "_fwd"][tripl_st:]
-    primer_rev = dna_rev_comp(Primer_seq[Section+"_rev"][tripl_end:])
+#     returns: reference sequence for the given section
+#     """ 
+#     tripl_st = Primer_out_of_triplets[Section+"_fwd"]
+#     tripl_end = Primer_out_of_triplets[Section+"_rev"]
+#     primer_fwd = Primer_seq[Section + "_fwd"][tripl_st:]
+#     primer_rev = dna_rev_comp(Primer_seq[Section+"_rev"][tripl_end:])
     
-    ref_gene_section = ref_gene[ref_gene.index(primer_fwd):ref_gene.index(primer_rev)+len(primer_rev)]
+#     ref_gene_section = ref_gene[ref_gene.index(primer_fwd):ref_gene.index(primer_rev)+len(primer_rev)]
 
-    return ref_gene_section
+#     return ref_gene_section
 
 
 def mut_spectrum(a_seq, 

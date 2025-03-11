@@ -4,8 +4,7 @@ from DMS_utils import translate_dna2aa
 from functions_ import mask_ref_in_variants_df
 
 
-
-def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1"): 
+def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1", cut_read_start= 12): 
     """ 
     Function to divide the alignments into the linker and insert (LOV2) sequences
     
@@ -13,17 +12,17 @@ def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1"):
     alignments: list of blast alignments 
     cut_site: DNA sequence, of the insert start (if read_dir is R1) or end (if read_dir is R2)
     read_dir: str, "R1" or "R2"
+    cut_read_start: int, number of nucleotides to cut from the start of the reads, to really focus only on the linker region
 
     returns:
-    linker_alignments: dict, with the sequences of the linker
-    LOV2_alignments: dict, with the sequences of the LOV2 insert
+    linker_alignments: dict, with the sequences of the linker {seq_id : {"qseq": qseq, "hseq": hseq, "midline": midline}, ...}
+    LOV2_alignments: dict, with the sequences of the LOV2 insert {seq_id : {"qseq": qseq, "hseq": hseq, "midline": midline}, ...}
     
     """
 
     linker_alignments = {}
     LOV2_alignments = {}
     LOV2_start_indel_count = 0
-
 
     for alignment in blast_alignments:
         qseq = alignment["hsps"][0]["qseq"].upper()
@@ -37,13 +36,14 @@ def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1"):
             if read_dir=="R2":
                 cut_site += len(cut_site_seq)
 
-                read_out_of_frame = cut_site % 3  ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame, begin of the read is cut, but for R2, the end of the read is cut)
+                read_out_of_frame = cut_site % 3  ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame)
                 
-                linker_alignments[seq_id] = {"qseq": qseq[cut_site:], "hseq": hseq[cut_site:], "midline": midline[cut_site:]}
+                linker_alignments[seq_id] = {"qseq": qseq[cut_site:-cut_read_start], "hseq": hseq[cut_site:-cut_read_start], "midline": midline[cut_site:cut_read_start]} # always in frame since it starts at the cut site
                 LOV2_alignments[seq_id] = {"qseq": qseq[read_out_of_frame:cut_site], "hseq": hseq[read_out_of_frame:cut_site], "midline": midline[read_out_of_frame:cut_site]}
 
             else:    
-                linker_alignments[seq_id] = {"qseq": qseq[:cut_site], "hseq": hseq[:cut_site], "midline": midline[:cut_site]}
+                
+                linker_alignments[seq_id] = {"qseq": qseq[cut_read_start:cut_site], "hseq": hseq[cut_read_start:cut_site], "midline": midline[cut_read_start:cut_site]}
                 LOV2_alignments[seq_id] = {"qseq": qseq[cut_site:], "hseq": hseq[cut_site:], "midline": midline[cut_site:]}
         else:
             LOV2_start_indel_count +=1
@@ -75,7 +75,7 @@ def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"):
             if query_from != 1 :
                 exlude_seqs += 1
                 continue
-        else: 
+        else: #  if read_dir == "R2"
             if query_to != len(query_seq):
                 exlude_seqs += 1
                 continue
@@ -85,12 +85,12 @@ def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"):
             alignments[seq_id] = {"qseq": qseq[:-read_out_of_frame], "hseq": hseq[:-read_out_of_frame], "midline": midline[-read_out_of_frame]}
             
         if read_dir == "R2":
-            read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads (only for R2, since R1 is always in frame)
+            read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads
             alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], "hseq": hseq[read_out_of_frame:], "midline": midline[read_out_of_frame:]}
 
     print(exlude_seqs, "sequences are excluded, since they do not cover the start (R1) or end (R2) of the amplicon sequence ")
 
-    return(alignments)
+    return alignments 
 
 
 
@@ -176,7 +176,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
                 all_variants[idx][variant] += 1
             included_seq +=1
        
-    indels_freq = indels/len(DMS_alignments)
+    #indels_counts = indels/len(DMS_alignments)
     print(seq_with_off_target_indels, "sequences with off target indels are excluded")
     print(included_seq, "sequences are included in the enrichment analysis")
 
@@ -188,7 +188,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     enrichment_counts, enrichment_relative = mask_ref_in_variants_df(variant_df=enrichment_df, ref_seq=ref_prot if data_type=="AA" else ref, data_type=data_type, reverse = True if read_dir == "R2" else False)
     
 
-    return all_variants, indels_freq, enrichment_counts, enrichment_relative
+    return all_variants, indels, enrichment_counts, enrichment_relative
 
 
 

@@ -36,6 +36,8 @@ def coverage_plot(coverage_df,
         plt.savefig(f'{FigFolder}/{samplename}_coverage.pdf')
         plt.savefig(f'{FigFolder}/{samplename}_coverage.png')
     plt.show()
+    plt.close()
+
 
 
 def plot_mutation_spectrum(data, 
@@ -67,7 +69,8 @@ def plot_mutation_spectrum(data,
         plt.savefig(f"{FigFolder}/{samplename}_mutagenic_spectrum_perc.pdf")
         
     plt.show()
-    plt.clf()
+    plt.close()
+
 
 
 def plot_mut_rate_per_pos(data, 
@@ -102,7 +105,8 @@ def plot_mut_rate_per_pos(data,
             os.makedirs(FigFolder)
         plt.savefig(f"{FigFolder}/{samplename}_mutation_rate_per_{data_type}_position.pdf", bbox_inches="tight")
     plt.show()
-    plt.clf()
+    plt.close()
+
 
 
 def plot_mutation_enrichment(variants_df, 
@@ -276,7 +280,7 @@ def compare_mut_enrichement(read_dict,
         plt.savefig(f"{FigFolder}/{Section}_{data_type}_mutation_enrichment_comparison.pdf", bbox_inches="tight")
 
     plt.show()
-    plt.clf()
+    plt.close()
 
 
 
@@ -505,3 +509,21 @@ def compare_mut_enrichement_for_all(read_dict,
         return final_df
 
 
+def plot_indel_freqs(indels, filename, FigFolder = None, roi_start_idx = None, roi_end_idx = None):
+    fig, axes = plt.subplots(1, figsize=(15,5))
+    plt.plot(indels.columns, indels.loc["insertion",:], label = "insertion", alpha = 0.5)
+    plt.plot( indels.columns, indels.loc["deletion",:], label = "deletion", alpha = 0.5)
+
+    if roi_start_idx:
+        plt.axvline(x=roi_start_idx, color='grey', linestyle='--', label = "insertion site")
+    if roi_end_idx:
+        plt.axvline(x=roi_end_idx, color='grey', linestyle='--')
+    plt.legend(frameon = False)
+    plt.xlabel("Position")
+    plt.ylabel("Frequency")
+    plt.title(f"Indel frequency {filename}")
+    if FigFolder:
+        plt.savefig(f"{FigFolder}/{filename}_indel_freq.pdf", bbox_inches='tight')
+        plt.savefig(f"{FigFolder}/{filename}_indel_freq.png", bbox_inches='tight')
+    plt.show()
+    plt.close()

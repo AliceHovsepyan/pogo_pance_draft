@@ -6,12 +6,13 @@ from pathlib import Path
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from functions_ import *
-from plotting import *
+#from functions_ import *
+#from plotting import *
 import argparse
+from preprocessing_functions import *
 
 
-###########define the necessary variables ##########
+########### define all variables ##########
 
 parser = argparse.ArgumentParser(description="Filter and demultiplex reads.")
 parser.add_argument("filepath", type=str, help="Path to the fastq files")
@@ -21,14 +22,15 @@ parser.add_argument("--save_ref", action="store_true", help="Enable saving refer
 
 args = parser.parse_args()
 
-# Assign to shorter variable names
 base_dir = args.filepath
 save_ref = args.save_ref
 
-# Now you can use them directly
 print(f"Filepath: {base_dir}")
 print(f"Save reference: {save_ref}")
 
+if not os.path.exists(f"{base_dir}/config.json"):
+    raise FileNotFoundError(f"No config file found. Please provide a config file in the directory.")
+    
 with open(f"{base_dir}/config.json", "r") as file:
     config = json.load(file)
 
@@ -37,7 +39,7 @@ catch_right = config["catch_right"]
 remove_read_qualities = config["remove_read_qualities"]
 Barcodes = config["Barcodes"]
 Primer_seq = config["Primer_seq"] 
-Primer_out_of_triplets = config["Primer_out_of_triplets"]
+Primer_out_of_frame = config["Primer_out_of_triplets"]
 variant = config["variant"]
 cut_primer_start = config["cut_primer_start"]
 cut_BC_seq = config["cut_BC_seq"]
@@ -45,7 +47,8 @@ used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"]
 amplicon = config["amplicon"]   
 include_only_complete_reads = config["include_only_complete_reads"] if "include_only_complete_reads" in config else False
-
+cutoff_a_read = config["cutoff_a_read"] if "cutoff_a_read" in config else False
+cutoff_b_read = config["cutoff_b_read"] if "cutoff_b_read" in config else False
 
 quality_score = {
   '!':0, '"':1, '#':2, '$':3, '%':4, '&':5, "'":6, '(':7, ')':8, '*':9,
@@ -54,14 +57,13 @@ quality_score = {
   '?':30, '@':31, 'A':32, 'B':33, 'C':34, 'D':35, 'E':36, 'F':37, 'G':38, 'H':39, 'I':40
 }
 
-
 ############ read and demultiplex sequences ###############
 
 ## read the sequences, thereby reads are quality filtered, by aborting the read at the first base with a quality score that is in remove_read_qualities list
-a_seq, b_seq, _, _, a_ids, b_ids = read_sequences(variant = variant, arbitrary_cutoff_a = False, arbitrary_cutoff_b = False, catch_left=catch_left, catch_right=catch_right, return_qualities_ids=True, quality_score=remove_read_qualities, base_dir = base_dir)
+a_seq, b_seq, _, _, a_ids, b_ids = read_sequences(variant = variant, cutoff_a_read = cutoff_a_read, cutoff_b_read = cutoff_b_read, catch_left=catch_left, catch_right=catch_right, return_qualities_ids=True, quality_score=remove_read_qualities, base_dir = base_dir)
 
 ## demultiplex the reads based on the barcodes and the primer sequence
-all_reads, all_ids = demultiplex_reads(a_seq, b_seq, ref_gene = None ,Barcodes=Barcodes, Primer_seq=Primer_seq, used_Barcodes = used_Barcodes, Sections = Sections, max_mismatch_primerseq = 5, filter_for_n_mut = False, n_mut_treshold = None, a_ids=a_ids, b_ids=b_ids, read_len_treshold= None, Primer_out_of_triplets= Primer_out_of_triplets, cut_primer_start=True, cut_BC_seq=True, catch_left=catch_left, catch_right=catch_right, include_only_complete_reads=include_only_complete_reads)
+all_reads, all_ids = demultiplex_reads(a_seq, b_seq,Barcodes=Barcodes, Primer_seq=Primer_seq, used_Barcodes = used_Barcodes, Sections = Sections, max_mismatch_primerseq = 5, a_ids=a_ids, b_ids=b_ids, Primer_out_of_frame= Primer_out_of_frame, cut_primer_start=True, cut_BC_seq=True, catch_left=catch_left, catch_right=catch_right, include_only_complete_reads=include_only_complete_reads)
 
 
 ############# save as fasta files ###############
@@ -75,7 +77,7 @@ for Bc in used_Barcodes:
 
     for section in Sections:
         if save_ref: ## only, if save_ref is True, the reference sequences are saved. Otherwise, the reference sequences have to be provided prior to running the script in the references folder, with the correct file names (e.g. {variant}_{Bc}_{section}_Nt_filt_ref.fasta)
-            ref = find_reference_seq(ref_gene=amplicon, Primer_seq=Primer_seq, Section=section, Primer_out_of_triplets=Primer_out_of_triplets) 
+            ref = find_reference_seq(ref_gene=amplicon, Primer_seq=Primer_seq, Section=section, Primer_out_of_frame=Primer_out_of_frame) 
             ref_sequences = [SeqRecord(Seq(ref), id = f"{variant}_{section}_ref", description = f"{variant} {section} DNA sequence")]
 
         for Read_dir in ["R1", "R2"]:
@@ -86,7 +88,8 @@ for Bc in used_Barcodes:
             output_file = f"{base_dir}/preprocessed/{variant}_{Bc}_{section}_Nt_filt_{Read_dir}.fasta"
             sequences = [SeqIO.SeqRecord(Seq(read), id = all_ids[f"{Bc}_{section}_{Read_dir}"][i], description = f"{variant} {Bc} DNA sequence") for i, read in enumerate(reads)]
 
-            count = SeqIO.write(sequences, output_file, "fasta")
+            #count = SeqIO.write(sequences, output_file, "fasta")
+            count = len(sequences)
             with open(output_file, "w") as output_handle:
                 SeqIO.write(sequences, output_handle, "fasta")
             print("Saved %i records to %s" % (count, output_file))
@@ -96,9 +99,10 @@ for Bc in used_Barcodes:
                     SeqIO.write(ref_sequences, output_handle, "fasta")
                 print(f"Saved reference sequence for {variant} {section} to {base_dir}/preprocessed/{variant}_{Bc}_{section}_Nt_filt_ref.fasta")
 
+
+
 ################ run blast ####################
-
-
+                
 # Define paths
 input_dir =  Path(f"{base_dir}/preprocessed/")      # Directory containing query sequences
 reference_dir = Path(f"{base_dir}/references/")   # Directory containing reference sequences
@@ -109,20 +113,20 @@ blast_db_dir = Path(f"{base_dir}/blast/db")    # Directory to store BLAST databa
 output_dir.mkdir(parents=True, exist_ok=True)
 blast_db_dir.mkdir(parents=True, exist_ok=True)
 
-# Step 1: Create BLAST databases for each reference sequence
+# Create BLAST databases for each reference sequence
 for read_file in input_dir.glob("*.fasta"):
-    read_basename = read_file.stem  # Get filename without extension
+    read_basename = read_file.stem 
     db_path = blast_db_dir / read_basename
 
     print(f"Creating BLAST database for {read_file}...")
     subprocess.run([
         "makeblastdb",
         "-in", str(read_file),
-        "-dbtype", "nucl",  # Change to "prot" for protein sequences
+        "-dbtype", "nucl", 
         "-out", str(db_path)
     ], check=True)
 
-# Step 2: Run BLAST for each dataset file against their respective reference
+# Run BLAST for each dataset file against their respective reference
 for read_file in input_dir.glob("*.fasta"):
     read_basename = read_file.stem
 
@@ -134,7 +138,7 @@ for read_file in input_dir.glob("*.fasta"):
 
     print(f"Running BLAST: aligning reads from {read_file} to {ref_file}...")
     subprocess.run([
-        "blastn",  # Use "blastp" for proteins
+        "blastn",  
         "-query", str(ref_file),
         "-db", str(db_path),
         "-out", str(output_file),

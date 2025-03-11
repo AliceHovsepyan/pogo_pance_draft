@@ -12,48 +12,32 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from characterization_from_blast_alignments import *
 
-########## define variables for the analysis, please update accordingly
-########## run filter_demultiplex_blast.py before running this script
 
-data_dir = "data/fastq/P03_RL8_AraCLOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+########## please run filter_demultiplex_blast.py before running this script
+
+########## define variables for the analysis, please update accordingly
+
+data_dir = "data/fastq/P01_DP6_LOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 #P01_DP6_LOV2/" #P02_RL8_LOV2
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
-read_directions = [ "R1"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
-datatypes = [ "DNA", "AA", "Codons"] # data types that should be considered for the analysis ["DNA", "AA", "Codons"]
+read_directions = [ "R1", "R2"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
+datatypes = [ "DNA", "AA", "Codons"] # data types that should be considered for the analysis, choose among ["DNA", "AA", "Codons"]
 
 roi_startseq = "ttagccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
 roi_endseq = "cggccaaa".upper() ## LOV2 end
-filter_for_reads_with_roi = True
+filter_for_reads_with_roi = True # if True, only reads that include the roi are considered for the analysis
 cut_to_roi = False # if True, the reads will be filtered for the region of interest, if False, the whole read will be considered for the analysis
 
 variant = config["variant"] 
 used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
-full_amplicon = config["amplicon"]#[2:]
+full_amplicon = config["amplicon"]#[2:] ## may be different to the specific reference sequence, if the amplicon was split into different parts for the analysis
 full_amplicon_AA = translate_dna2aa(full_amplicon)
-min_coverage = 100
+min_coverage = 100 # minimum coverage for a position to be considered for the analysis
 
-for data_type in datatypes:
-    print("############# calculation for", data_type, "#############")
-    full_reference = full_amplicon if data_type != "AA" else full_amplicon_AA
-
-
-    key_of_interest = "combined" if len(read_directions) > 1 else read_directions[0]
-
-    FigFolder = f"{os.getcwd()}/output/{variant}/blast/{key_of_interest}/plots/{data_type}"
-    if not os.path.exists(FigFolder):
-        os.makedirs(FigFolder)
-
-
-    OutputFolder = f"{os.getcwd()}/output/{variant}/blast/{key_of_interest}/enrichments/{data_type}"
-    if not os.path.exists(OutputFolder):
-        os.makedirs(OutputFolder)
-
-    ############# 
-
-    genetic_code = {
+genetic_code = {
     'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M',
     'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T',
     'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K',
@@ -70,34 +54,47 @@ for data_type in datatypes:
     'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L',
     'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*',
     'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W',
-        }
-
-    codons = list(genetic_code.keys())
-
-
-    ecoli_pref = { ### codons used for retron library (RL8) construction
-                "A": 'GCG',
-                "R": 'CGT',
-                "N": 'AAC',
-                "D": 'GAT',
-                "C": 'TGC',
-                "Q": 'CAG',
-                "E": 'GAA',
-                "G": 'GGC',
-                "H": 'CAT',
-                "I": 'ATT',
-                "L": "CTG",
-                "K": 'AAA',
-                "M": 'ATG',
-                "F": "TTT",
-                "P": 'CCG',
-                "S": 'AGC',
-                "T": 'ACC',
-                "W": 'TGG',
-                "Y": "TAT",
-                "V": 'GTG',
     }
 
+codons = list(genetic_code.keys())
+
+ecoli_pref = { ### codons used for retron library (RL8) construction
+    "A": 'GCG',
+    "R": 'CGT',
+    "N": 'AAC',
+    "D": 'GAT',
+    "C": 'TGC',
+    "Q": 'CAG',
+    "E": 'GAA',
+    "G": 'GGC',
+    "H": 'CAT',
+    "I": 'ATT',
+    "L": "CTG",
+    "K": 'AAA',
+    "M": 'ATG',
+    "F": "TTT",
+    "P": 'CCG',
+    "S": 'AGC',
+    "T": 'ACC',
+    "W": 'TGG',
+    "Y": "TAT",
+    "V": 'GTG',
+}
+
+for data_type in datatypes:
+
+    print("############# Analysis for", data_type, "#############")
+
+    full_reference = full_amplicon if data_type != "AA" else full_amplicon_AA
+    key_of_interest = "combined" if len(read_directions) > 1 else read_directions[0]
+
+    FigFolder = f"{os.getcwd()}/output/final_output/{variant}/blast/{key_of_interest}/plots/{data_type}"
+    if not os.path.exists(FigFolder):
+        os.makedirs(FigFolder)
+
+    OutputFolder = f"{os.getcwd()}/output/final_output/{variant}/blast/{key_of_interest}/enrichments/{data_type}"
+    if not os.path.exists(OutputFolder):
+        os.makedirs(OutputFolder) 
 
     ##### analysis of mutation enrichments
 
@@ -108,33 +105,34 @@ for data_type in datatypes:
             blast_stemFilename = f"{variant}_{Bc}_{Section}_Nt_filt_" ## update accordingly, total name should be e.g. f"RL8_BC1_S1_Nt_filt_R1.out", same stem should be used for the reference file and the blast output file
 
             if not os.path.exists(f"{data_dir}/references/{blast_stemFilename}ref.fasta"):
-                print(f"Reference file {data_dir}/references/{blast_stemFilename}ref.fasta does not exist, please check the reference file path")
+                print(f"Reference file {data_dir}/references/{blast_stemFilename}ref.fasta does not exist, please update the the reference file path or run the blast analysis first")
                 exit()
 
-            ### set the reference
+            # set the reference
             amplicon_seq = str(SeqIO.read(f"{data_dir}/references/{blast_stemFilename}ref.fasta", "fasta").seq)
             amplicon_AA = translate_dna2aa(amplicon_seq)
             reference = amplicon_seq if data_type !="AA" else amplicon_AA
 
-            ### idxs of region of interest
+            # idxs of region of interest
             roi_startidx_DNA = amplicon_seq.index(roi_startseq)
             roi_endidx_DNA = amplicon_seq.index(roi_endseq) + len(roi_endseq)
 
             roi_startidx_AA = roi_startidx_DNA//3
             roi_endidx_AA = roi_endidx_DNA//3
 
-            #### calculate mutation enrichment
+
+            #### calculate mutation enrichment for each read direction
                 
             all_enrichments = {read_dir:{} for read_dir in read_directions}
 
             for read_dir in read_directions:
 
-                if not os.path.exists(f"{data_dir}/blast/alignments/{blast_stemFilename}{read_dir}.out"):
-                    print("Blast output file does not exist, please check the blast output file path")
-                    exit
-            
                 # Open the blast output file and load it as a dictionary
                 print("################",  read_dir,   "################")
+
+                if not os.path.exists(f"{data_dir}/blast/alignments/{blast_stemFilename}{read_dir}.out"):
+                    print("Blast output file does not exist, please check the blast output file path or the input parameters, e.g. Barcodes, Sections, read directions")
+                    exit
 
                 with open(f"{data_dir}/blast/alignments/{blast_stemFilename}{read_dir}.out", "r") as file:
                     blast_output = json.load(file)
@@ -154,8 +152,9 @@ for data_type in datatypes:
  
                 alignments = restructure_alignments(blast_alignments, query_seq=amplicon_seq, read_dir=read_dir) ## get hseqs, qseqs, midline
 
-                #### calculate enrichments
-                all_variants, indels_freq,  enrichment_counts, enrichment_relative = characterize_DMS_blast_alignment(alignments, amplicon_seq, data_type=data_type,read_dir=read_dir, exclude_not_covered_regions=False if len(read_directions) > 1 else True)
+
+                #calculate enrichments
+                all_variants, indels,  enrichment_counts, enrichment_relative = characterize_DMS_blast_alignment(alignments, amplicon_seq, data_type=data_type,read_dir=read_dir, exclude_not_covered_regions=False if len(read_directions) > 1 else True)
                 all_variants = pd.DataFrame.from_dict(all_variants)
 
                 # cut to region of interest if cut_to_roi is True
@@ -166,35 +165,39 @@ for data_type in datatypes:
                     cut_start_idx = 0
                     cut_end_idx = len(amplicon_seq) if data_type =="DNA" else len(amplicon_AA)
 
-                ### add correct column indexes, based on "full_amplicon", if both read directions are considered
-                if len(read_directions) > 1: 
+                # add correct column indexes, based on "full_amplicon", if both read directions are considered
+                if key_of_interest == "combined": 
                     idxs_in_full_reference = [idx for idx in range(full_reference.index(reference), full_reference.index(reference)+len(reference))] if data_type != "Codons" else [idx for idx in range(full_reference.index(reference)//3, (full_reference.index(reference)+len(reference))//3)] 
 
                     all_variants.columns = idxs_in_full_reference
 
-                    indels_freq.columns = [idx for idx in range(full_amplicon.index(amplicon_seq), full_amplicon.index(amplicon_seq)+len(amplicon_seq))] ## always DNA level
+                    indels.columns = [idx for idx in range(full_amplicon.index(amplicon_seq), full_amplicon.index(amplicon_seq)+len(amplicon_seq))] ## always DNA level
+                    indel_freq = indels/all_variants.sum() ################## check if this is correct
                     enrichment_counts.columns = idxs_in_full_reference
                     enrichment_relative.columns = idxs_in_full_reference
 
-                ### store enrichments
+                # store enrichments
                 all_enrichments[read_dir] = {
                     "all_variants": all_variants.iloc[:,cut_start_idx:cut_end_idx],
-                    "indels_freq": indels_freq.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indels_freq.iloc[:,cut_start_idx*3:cut_end_idx*3],
+                    "indels": indels.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indels.iloc[:,cut_start_idx*3:cut_end_idx*3], # always DNA level
+                    "indel_freqs": indel_freq.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indel_freq.iloc[:,cut_start_idx*3:cut_end_idx*3], # always DNA level
                     "enrichment_counts": enrichment_counts.iloc[:,cut_start_idx:cut_end_idx],
                     "enrichment_relative": enrichment_relative.iloc[:,cut_start_idx:cut_end_idx]
                 }
-                ### print(all_enrichments[read_dir]["all_variants"])
-
-                # ###set columns with lower coverage than min_coverage to na
+               
+                # set columns with lower coverage than min_coverage to na
                 coverages = all_enrichments[read_dir]["all_variants"].sum()
 
                 all_enrichments[read_dir]["all_variants"].loc[:,coverages < min_coverage] = 0
                 all_enrichments[read_dir]["enrichment_counts"].loc[:,coverages < min_coverage] = np.nan
                 all_enrichments[read_dir]["enrichment_relative"].loc[:, coverages < min_coverage] = np.nan
+                if data_type == "DNA":
+                    all_enrichments[read_dir]["indels"].loc[:, coverages < min_coverage] = 0
+                    all_enrichments[read_dir]["indel_freqs"].loc[:, coverages < min_coverage] = 0
 
-             ### set reference sequence to the region of interest
+            # set reference sequence to the region of interest
             if cut_to_roi:
-                if len(read_directions) > 1:
+                if key_of_interest == "combined":
                     roi_reference = reference[roi_startidx_AA:roi_endidx_AA] if data_type == "AA" else reference[roi_startidx_DNA:roi_endidx_DNA]
                 else: 
                     roi_len = all_enrichments[key_of_interest]["enrichment_relative"].shape[1]
@@ -208,9 +211,8 @@ for data_type in datatypes:
                 read_len = all_enrichments[read_directions[0]]["enrichment_relative"].shape[1] if data_type != "Codons" else all_enrichments[read_directions[0]]["enrichment_relative"].shape[1]*3
                 roi_reference = reference[:read_len] if read_directions[0] != "R2" else reference[-read_len:]
 
+            if key_of_interest == "combined": 
 
-            if len(read_directions) > 1: 
-                
                 all_enrichments["combined"] = {}
 
                 ## total variants of R1 and R2
@@ -219,11 +221,10 @@ for data_type in datatypes:
                 ## total enrichments of R1 and R2
                 all_enrichments["combined"]["enrichment_counts"], all_enrichments["combined"]["enrichment_relative"] = mask_ref_in_variants_df(all_enrichments["combined"]["all_variants"], ref_seq=roi_reference, data_type=data_type)
                 
-
                 ### combine indels of R1 and R2
-                all_enrichments["combined"]["indels_freq"] =  all_enrichments["R1"]["indels_freq"] + all_enrichments["R2"]["indels_freq"]
+                all_enrichments["combined"]["indels"] = all_enrichments["R1"]["indels"] + all_enrichments["R2"]["indels"]
 
-           
+                all_enrichments["combined"]["indel_freqs"] =  (all_enrichments["R1"]["indels"] + all_enrichments["R2"]["indels"])/all_enrichments["combined"]["all_variants"].sum()
 
             ### which key to use for the analysis
             filename = f"{variant}_{Bc}_{Section}_{key_of_interest}_roi{cut_to_roi}_{data_type}"
@@ -248,40 +249,27 @@ for data_type in datatypes:
 
             print("plotting mutation enrichment...")
             plot_mutation_enrichment(all_enrichments[key_of_interest]["enrichment_relative"] , ref_seq=roi_reference, samplename=filename, data_type=data_type, FigFolder=FigFolder)
-            plt.close()
 
             ### plot coverages
             print("plotting coverage...")
             coverage_plot(all_enrichments[key_of_interest]["all_variants"].sum(), FigFolder=FigFolder, samplename = filename)
-            plt.close()
 
             ### plot indel frequencies
             print("plotting indel frequencies...")
             if data_type == "DNA":
-                fig, axes = plt.subplots(1, figsize=(15,5))
-                plt.plot( all_enrichments[key_of_interest]["indels_freq"].columns, all_enrichments[key_of_interest]["indels_freq"].loc["insertion",:], label = "insertion", alpha = 0.5)
-                plt.plot( all_enrichments[key_of_interest]["indels_freq"].columns, all_enrichments[key_of_interest]["indels_freq"].loc["deletion",:], label = "deletion", alpha = 0.5)
-                if roi_startseq != "" and roi_endseq != "":
-                    plt.axvline(x=roi_startidx_DNA, color='grey', linestyle='--', label = "insertion site")
-                    plt.axvline(x=roi_endidx_DNA, color='grey', linestyle='--')
-                plt.legend(frameon = False)
-                plt.xlabel("Position")
-                plt.ylabel("Frequency")
-                plt.title(f"Indel frequency {variant}_{Bc}_{Section}")
-                plt.savefig(f"{FigFolder}/{filename}_indel_freq.pdf", bbox_inches='tight')
-                plt.savefig(f"{FigFolder}/{filename}_indel_freq.png", bbox_inches='tight')
-                plt.close()
+                plot_indel_freqs(all_enrichments[key_of_interest]["indel_freqs"], FigFolder=FigFolder, filename = filename, roi_start_idx=roi_startidx_DNA, roi_end_idx=roi_endidx_DNA)
             
-            ## calculate mutation enrichment
+            ## calculate and plot mutation enrichment
             mut_spec, mut_spec_perc = calc_mut_spectrum_from_enrichment(all_enrichments[key_of_interest]["enrichment_relative"], ref_seq=roi_reference, data_type=data_type)
+            
             print("plotting mutagenic spectrum...")
-
-
             plot_mutation_spectrum(mut_spec_perc, FigFolder=FigFolder, samplename = filename, data_type=data_type)
 
             ## save enrichments as csv
             mut_spec_perc.to_csv(f"{OutputFolder}/{filename}_mut_spec.csv")
             all_enrichments[key_of_interest]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
             all_enrichments[key_of_interest]["all_variants"].to_csv(f"{OutputFolder}/{filename}_all_variants.csv")
-            all_enrichments[key_of_interest]["indels_freq"].to_csv(f"{OutputFolder}/{filename}_indels.csv")
+            if data_type == "DNA":
+                all_enrichments[key_of_interest]["indel_freqs"].to_csv(f"{OutputFolder}/{filename}_indel_freq.csv")
+                all_enrichments[key_of_interest]["indels"].to_csv(f"{OutputFolder}/{filename}_indel_counts.csv")
             all_enrichments[key_of_interest]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")
