@@ -1,15 +1,13 @@
 
 # Illumina
 
-## Final pipeline
-
 ### Input 
 as input, we provide: 
 1. a **json** file, in which arguments for filtering, and demultiplexing should be specified (thereby, we can later also track which settings were used)
 
 2. fastq files (forward (R1), reverse (R2) reads) -> the filenames should follow the notation: ({variant name}_{read direction}_001.fastq, e.g. DP6_R1_001.fastq)
 
-#### Analysis
+### Analysis
 All of the steps below, are automatized in the `preprocess_and_align_illumina_reads.py` file (steps 1-3) and the `analyze_mutation_enrichment.py` or `characterize_indels_from_blast.py` file (step 4). 
 If you provide the correct input, you can just run these files as follows: 
 
@@ -69,12 +67,6 @@ Below, you can find some additional information on the steps included in these f
 			- calculate **mutation enrichment** for the reads per position
 			- calculate **mutagenic spectrum**, i.e. what mutations are induced
 
-
-## pymol
-
-start pymol in terminal: 
-`pymol`
-
 # Nanopore
 
 ### Sequencing
@@ -105,3 +97,7 @@ Please run the `Nanopore_filtering_alignment_processing.sh` script, which automa
 		- or, to run the analysis on **all** .bam files within a folder using the `Nanopore_quality_control.py` file: 
 			`python Nanopore_quality_control.py /var/lib/minknow/data/basecalling/pass/barcode09/alignment /home/student/anna/DMS_analysis/output/Nanopore/barcode09/quality_control`
 
+
+# pymol
+
+We want to show the enriched mutations on the structure level. Please refer to the `pymol.ipynb` notebook for details on how to modify the .pdb file to store the respective enrichment values. Then, open the modified .pdb file in `pymol` and set the right coloring e.g. with `spectrum b, gray70 marine, minimum=0, maximum=100` (if using a binary coloring). 
