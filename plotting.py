@@ -12,7 +12,7 @@ import os.path
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 from functions_ import *
-
+from preprocessing_functions import *
 
 def coverage_plot(coverage_df, 
                   samplename = "", 

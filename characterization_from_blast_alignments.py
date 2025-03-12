@@ -2,9 +2,9 @@ import pandas as pd
 import re
 from DMS_utils import translate_dna2aa
 from functions_ import mask_ref_in_variants_df
+import numpy as np
 
-
-def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1", cut_read_start= 12): 
+def divide_alignments(blast_alignments, cut_site_seq, query_seq, read_dir="R1", cut_read_start= 12): 
     """ 
     Function to divide the alignments into the linker and insert (LOV2) sequences
     
@@ -23,8 +23,11 @@ def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1", cut_read_st
     linker_alignments = {}
     LOV2_alignments = {}
     LOV2_start_indel_count = 0
+    coverages = np.zeros(len(query_seq), dtype = int)
 
     for alignment in blast_alignments:
+        query_from = alignment["hsps"][0]["query_from"]-1 ## covert to 0-based index
+        query_to = alignment["hsps"][0]["query_to"] ## keep as 1-based index
         qseq = alignment["hsps"][0]["qseq"].upper()
         hseq = alignment["hsps"][0]["hseq"].upper()
         seq_id = alignment["description"][0]["title"]
@@ -48,31 +51,34 @@ def divide_alignments(blast_alignments, cut_site_seq, read_dir="R1", cut_read_st
         else:
             LOV2_start_indel_count +=1
 
+        coverages[query_from:query_to] += 1
+
     print(LOV2_start_indel_count, "sequences are excluded, since LOV2 start site could not be found in the ref (due to '-' i.e. insertions at the start of LOV2)")
 
-    return(linker_alignments, LOV2_alignments)
+    return linker_alignments, LOV2_alignments
 
 
 def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"): 
     """ 
     Function to restructure the alignments, so that the qseq, hseq, midline sequences are stored in a dict with the seq_id as key
     Thereby, we exclude sequences that do not start exactly at the start (R1) or end (R2) of the amplicon sequence, i.e. are out of frame
-    
+    Returns the alignments and the coverage of the amplicon sequence, thereby the coverage is calculated as the number of reads that cover each position of the amplicon sequence (**including** reads that with indels, i.e. for all reads returned in the blast alignments)
     """
     exlude_seqs = 0
     alignments = {}
+    coverages = np.zeros(len(query_seq), dtype = int)
 
 
     for alignment in blast_alignments:
-        query_from = alignment["hsps"][0]["query_from"]
-        query_to = alignment["hsps"][0]["query_to"]
+        query_from = alignment["hsps"][0]["query_from"]-1 ## covert to 0-based index
+        query_to = alignment["hsps"][0]["query_to"] ## keep as 1-based index
         qseq = alignment["hsps"][0]["qseq"].upper()
         hseq = alignment["hsps"][0]["hseq"].upper()
         seq_id = alignment["description"][0]["title"]
         midline = alignment["hsps"][0]["midline"]
         
         if read_dir == "R1": 
-            if query_from != 1 :
+            if query_from != 0 :
                 exlude_seqs += 1
                 continue
         else: #  if read_dir == "R2"
@@ -82,15 +88,22 @@ def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"):
         
         if read_dir == "R1":
             read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads, so that they end on a codon boundary
-            alignments[seq_id] = {"qseq": qseq[:-read_out_of_frame], "hseq": hseq[:-read_out_of_frame], "midline": midline[-read_out_of_frame]}
+            alignments[seq_id] = {"qseq": qseq[:-read_out_of_frame], 
+                                  "hseq": hseq[:-read_out_of_frame], 
+                                  "midline": midline[-read_out_of_frame]}
             
         if read_dir == "R2":
             read_out_of_frame = len(hseq) % 3  ## correct for out of frame reads, due to different lengths of our reads
-            alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], "hseq": hseq[read_out_of_frame:], "midline": midline[read_out_of_frame:]}
+            alignments[seq_id] = {"qseq": qseq[read_out_of_frame:], 
+                                  "hseq": hseq[read_out_of_frame:], 
+                                  "midline": midline[read_out_of_frame:]}
 
-    print(exlude_seqs, "sequences are excluded, since they do not cover the start (R1) or end (R2) of the amplicon sequence ")
+         ## coverage 
+        coverages[query_from:query_to] += 1
 
-    return alignments 
+    print(f"{exlude_seqs} sequences are excluded, since they do not cover the start (R1) or end (R2) of the amplicon sequence ")
+
+    return alignments, coverages
 
 
 

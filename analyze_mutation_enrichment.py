@@ -150,8 +150,7 @@ for data_type in datatypes:
 
                     print(len(blast_alignments), "alignments after filtering filtering for reads with region of interest")
  
-                alignments = restructure_alignments(blast_alignments, query_seq=amplicon_seq, read_dir=read_dir) ## get hseqs, qseqs, midline
-
+                alignments, all_coverages = restructure_alignments(blast_alignments, query_seq=amplicon_seq, read_dir=read_dir) ## get hseqs, qseqs, midline, all_coverages refers to the total coverage of the read, (**including** reads with indels (filtered in the next analysis), i.e. all reads returned in alignments)
 
                 #calculate enrichments
                 all_variants, indels,  enrichment_counts, enrichment_relative = characterize_DMS_blast_alignment(alignments, amplicon_seq, data_type=data_type,read_dir=read_dir, exclude_not_covered_regions=False if len(read_directions) > 1 else True)
@@ -172,7 +171,7 @@ for data_type in datatypes:
                     all_variants.columns = idxs_in_full_reference
 
                     indels.columns = [idx for idx in range(full_amplicon.index(amplicon_seq), full_amplicon.index(amplicon_seq)+len(amplicon_seq))] ## always DNA level
-                    indel_freq = indels/all_variants.sum() ################## check if this is correct
+                    indel_freq = indels/all_coverages
                     enrichment_counts.columns = idxs_in_full_reference
                     enrichment_relative.columns = idxs_in_full_reference
 
@@ -181,19 +180,21 @@ for data_type in datatypes:
                     "all_variants": all_variants.iloc[:,cut_start_idx:cut_end_idx],
                     "indels": indels.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indels.iloc[:,cut_start_idx*3:cut_end_idx*3], # always DNA level
                     "indel_freqs": indel_freq.iloc[:,cut_start_idx:cut_end_idx] if data_type == "DNA" else indel_freq.iloc[:,cut_start_idx*3:cut_end_idx*3], # always DNA level
+                    "all_coverages": all_coverages[cut_start_idx:cut_end_idx] if data_type == "DNA" else all_coverages[cut_start_idx*3:cut_end_idx*3], # always DNA level
                     "enrichment_counts": enrichment_counts.iloc[:,cut_start_idx:cut_end_idx],
-                    "enrichment_relative": enrichment_relative.iloc[:,cut_start_idx:cut_end_idx]
+                    "enrichment_relative": enrichment_relative.iloc[:,cut_start_idx:cut_end_idx],
                 }
                
-                # set columns with lower coverage than min_coverage to na
-                coverages = all_enrichments[read_dir]["all_variants"].sum()
+                # set columns with lower coverage than min_coverage to nan
 
-                all_enrichments[read_dir]["all_variants"].loc[:,coverages < min_coverage] = 0
-                all_enrichments[read_dir]["enrichment_counts"].loc[:,coverages < min_coverage] = np.nan
-                all_enrichments[read_dir]["enrichment_relative"].loc[:, coverages < min_coverage] = np.nan
+                read_depth = all_variants.sum() ## `all_coverages` also includes reads that are excluded due to indels, here we want to have the coverage after filtering these reads
+
+                all_enrichments[read_dir]["all_variants"].loc[:,read_depth < min_coverage] = 0
+                all_enrichments[read_dir]["enrichment_counts"].loc[:,read_depth < min_coverage] = np.nan
+                all_enrichments[read_dir]["enrichment_relative"].loc[:, read_depth < min_coverage] = np.nan
                 if data_type == "DNA":
-                    all_enrichments[read_dir]["indels"].loc[:, coverages < min_coverage] = 0
-                    all_enrichments[read_dir]["indel_freqs"].loc[:, coverages < min_coverage] = 0
+                    all_enrichments[read_dir]["indels"].loc[:, read_depth < min_coverage] = 0
+                    all_enrichments[read_dir]["indel_freqs"].loc[:, read_depth < min_coverage] = 0
 
             # set reference sequence to the region of interest
             if cut_to_roi:
@@ -226,6 +227,8 @@ for data_type in datatypes:
 
                 all_enrichments["combined"]["indel_freqs"] =  (all_enrichments["R1"]["indels"] + all_enrichments["R2"]["indels"])/all_enrichments["combined"]["all_variants"].sum()
 
+                all_enrichments["combined"]["all_coverages"] = all_enrichments["R1"]["all_coverages"] + all_enrichments["R2"]["all_coverages"]
+
             ### which key to use for the analysis
             filename = f"{variant}_{Bc}_{Section}_{key_of_interest}_roi{cut_to_roi}_{data_type}"
 
@@ -253,11 +256,21 @@ for data_type in datatypes:
             ### plot coverages
             print("plotting coverage...")
             coverage_plot(all_enrichments[key_of_interest]["all_variants"].sum(), FigFolder=FigFolder, samplename = filename)
-
+        
             ### plot indel frequencies
             print("plotting indel frequencies...")
             if data_type == "DNA":
+
                 plot_indel_freqs(all_enrichments[key_of_interest]["indel_freqs"], FigFolder=FigFolder, filename = filename, roi_start_idx=roi_startidx_DNA, roi_end_idx=roi_endidx_DNA)
+
+                plt.plot(all_enrichments[key_of_interest]["all_coverages"])
+                plt.title("Coverage before filtering out reads with indels")
+                plt.xlabel("Position")
+                plt.ylabel("Coverage")
+                plt.savefig(f"{FigFolder}/{filename}_coverage_before_filtering_indel_reads.pdf")
+                plt.close()
+
+
             
             ## calculate and plot mutation enrichment
             mut_spec, mut_spec_perc = calc_mut_spectrum_from_enrichment(all_enrichments[key_of_interest]["enrichment_relative"], ref_seq=roi_reference, data_type=data_type)
@@ -269,7 +282,9 @@ for data_type in datatypes:
             mut_spec_perc.to_csv(f"{OutputFolder}/{filename}_mut_spec.csv")
             all_enrichments[key_of_interest]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
             all_enrichments[key_of_interest]["all_variants"].to_csv(f"{OutputFolder}/{filename}_all_variants.csv")
+            all_enrichments[key_of_interest]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")
             if data_type == "DNA":
                 all_enrichments[key_of_interest]["indel_freqs"].to_csv(f"{OutputFolder}/{filename}_indel_freq.csv")
                 all_enrichments[key_of_interest]["indels"].to_csv(f"{OutputFolder}/{filename}_indel_counts.csv")
-            all_enrichments[key_of_interest]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")
+                pd.DataFrame(all_enrichments[key_of_interest]["all_coverages"]).to_csv(f"{OutputFolder}/{filename}_all_coverages.csv")
+            
