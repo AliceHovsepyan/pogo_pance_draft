@@ -3,7 +3,7 @@ from Bio.SeqIO import QualityIO
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.cm as cm
-from DMS_utils import dna_rev_comp, translate_dna2aa
+from utils import dna_rev_comp, translate_dna2aa
 import pandas as pd
 import seaborn as sns
 import pickle as pkl
@@ -161,312 +161,99 @@ def plot_mutation_enrichment(variants_df,
     plt.close()
 
 
-def compare_mut_enrichement(read_dict, 
-                            Section, 
-                            ref_gene, 
-                            Primer_out_of_triplets, 
-                            Barcodes,
-                            Primer_seq, 
-                            use_rev_read = True, 
-                            use_forward_read = True, 
-                            xlim_plot = None,
-                            FigFolder = None, 
-                            data_type = "DNA", 
-                            combine_mut_rates =False,
-                            vmin = 0, 
-                            vmax = None, 
-                            samples = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], 
-                            plt_titles =["Mutagenesis cycle 1", "Negative selection cycle 1", "Positive selection cycle 1", "Mutagenesis cycle 3", "Negative selection cycle 3", "Positive selection cycle 3"], 
-                            plot_coverage = True, 
-                            color_above_vmax_orange = True, 
-                            cbar_label = "mutation rate", 
-                            show_only_pos = None, 
-                            fig_size = (20,25),
-                            include_BCs= False,
-                            seq_include_Primer_start = False):
-    """
-    compare mutation enrichment between different mut/selection steps for a given section as heatmap with coverage plotted below
+def plot_temporal_enrichment(enrichment_df_dict, 
+                            ref,
+                            combine_mut_rates = True,
+                            color_above_vmax_orange = True,
+                            vmax = 0.1,
+                            show_cbar_for_each = False,
+                            plt_titles = None,
+                            show_plttitles = False,
+                            plot_coverage = True,
+                            bias_per_pos = None,
+                            show_only_pos = None,
+                            ref_annot = None,
+                            return_df = True,
+                            FigFolder = None,
+                            figsize = (20,10),
+                            data_type = "AA"):
 
-    read_dict: dictionary with reads, following the structure {samplename_Section_R1: reads, samplename_Section_R2: reads, samplename2_S1_R1: reads, ... }
-    ref_gene: reference gene sequence
-    Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {S1_fwd : seq, S1_rev : seq, S2_fwd : seq, ... }
-    Section: Section of interest
-    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {S1_fwd : int, S1_rev : int, S2_fwd : int, ... }
-    Barcodes: dictionary with the barcode sequences, following the structure {BC1_fwd : seq, BC1_rev : seq, BC2_fwd : seq, ... }
-    use_forward_read, use_rev_read: whether or not to include the forward read (R1) and/or reverse read (R2) in the analysis (default: True)
-    data_type: set to "DNA", "AA" or "Codons"
-    combine_mut_rates: if True, for each sample, the mutation rates are summed up per position
-    samples: list of samples to compare (should be in the read_dict, and include the respective Barcode, e.g name1_BC1, name2_BC2)
-    plot_coverage: if True, coverage is plotted below the mutation enrichment heatmap
-    color_above_vmax_orange: if True, values above vmax are colored orange
-    show_only_pos: dictionary that contains for each section the positions to show in the heatmap, following the structure {S1: pos, S2: pos, ...}
-    include_BCs: whether or not the reads include BC seqs (then, the name should include the BCx name also)
-    seq_include_Primer_start = whether or not the sequence includes the primer start, i.e. whether correction for triplet starts already happended during multiplexing (default: False), only used if include_BCs is False
+    if return_df: 
+        combined_df = pd.DataFrame(index = (enrichment_df_dict.keys()), columns = list(range(len(ref))), data = 0, dtype = np.float64)
 
-    """
+    pltsize = len(enrichment_df_dict.keys()) if not plot_coverage else len(enrichment_df_dict.keys()) + 1
+    pltsize = pltsize + 1 if bias_per_pos else pltsize
 
-    dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
-    gather_variants = dataType_handler.get(data_type)
-    if not gather_variants: 
-        print("Data type not found!")
-        exit()
+    fig, axes =  plt.subplots(pltsize,1, figsize=figsize)
+    fig.subplots_adjust(hspace=0.5 if show_plttitles else 0.1)
 
-    tripl_st = Primer_out_of_triplets[Section+"_fwd"]
-    tripl_end = Primer_out_of_triplets[Section+"_rev"]
-    ref_section = find_reference_seq(ref_gene=ref_gene, Primer_seq=Primer_seq, Section=Section,Primer_out_of_triplets=Primer_out_of_triplets) 
+    if not show_plttitles and plot_coverage:
+        ## move the last subplot a bit down to make space for the labels    
+        last_ax = axes[-1] if not bias_per_pos else axes[-2]         # Get the last subplot
+        # Adjust the last subplot's position
+        pos = last_ax.get_position()    # Get its current position
+        last_ax.set_position([pos.x0, pos.y0 - 0.015, pos.width, pos.height]) 
+        if bias_per_pos:
+            pos =  axes[-1].get_position()    # Get its current position
+            axes[-1].set_position([pos.x0, pos.y0 - 0.015, pos.width, pos.height]) 
 
-    ref = ref_section if data_type != "AA" else translate_dna2aa(ref_section)
+    idx = 0 
 
-    pltsize = len(samples)+1 if plot_coverage else len(samples)
-    fig, axes = plt.subplots(pltsize, 1, figsize=fig_size)
-    fig.subplots_adjust(wspace=0.01)
+    my_cmap = plt.get_cmap('viridis').copy()
 
-    for idx, sample in enumerate(samples):
+    if color_above_vmax_orange:
+        my_cmap.set_over('orange')
 
-        if include_BCs: 
-            Bc = sample[sample.index("BC"):sample.index("BC")+3]
-            catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
-            catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
+    for cycles, sample_data in enrichment_df_dict.items():
+        if combine_mut_rates:
+            variant_relative_freq = pd.DataFrame(sample_data["mut_enrichment"][1].sum(axis=0)).T
         else: 
-            catch_left = "" if not seq_include_Primer_start else ""+Primer_seq[Section + "_fwd"][:tripl_st] ## if the primer start was already cut from the sequence, the catch_left is empty, i.e. the whole sequence is used for further analysis (the sequence was already corrected for triplet start)
-            catch_right = "" if not seq_include_Primer_start else ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
+            variant_relative_freq = sample_data["mut_enrichment"][1]
 
-        a_seq = read_dict[sample + f"_{Section}_R1"]
-        b_seq = read_dict[sample+ f"_{Section}_R2"]
+        if return_df:
+            combined_df.loc[cycles] = variant_relative_freq.values[0]
 
-        seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left, catch_right=catch_right, ref=ref, use_forward_read=use_forward_read, use_rev_read=use_rev_read)
-
-        seq_variants = pd.DataFrame.from_dict(seq_variants)
-        coverage_df = pd.DataFrame(seq_variants.sum())
-
-        _ , variant_relative_freq = mask_ref_in_variants_df(ref_seq=ref, variant_df=seq_variants, data_type=data_type)
+        coverage = sample_data["coverage"]
 
         if show_only_pos:
-            positions = show_only_pos[Section]
-            variant_relative_freq = variant_relative_freq.iloc[:,positions]
-            ref = "".join([ref[pos] for pos in positions])
-            coverage_df = coverage_df.iloc[positions,:]
+            variant_relative_freq = variant_relative_freq.iloc[:,show_only_pos]
+            coverage = coverage.iloc[:,show_only_pos]
 
-        xlim_plot = xlim_plot if xlim_plot else variant_relative_freq.shape[1]
-        variant_relative_freq = variant_relative_freq.iloc[:,:xlim_plot]
-
-        if combine_mut_rates: 
-            variant_relative_freq = pd.DataFrame(variant_relative_freq.sum(axis = 0)).T
-
-        my_cmap = plt.get_cmap('viridis').copy()
-        if color_above_vmax_orange:
-            my_cmap.set_over('orange')
-
-        sns.heatmap(variant_relative_freq, annot=False, ax=axes[idx], linecolor = "black", cmap = my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02},vmin=vmin,vmax = vmax,   xticklabels=False if idx != len(samples)-1 else True, yticklabels = True if combine_mut_rates == False else False)
+        sns.heatmap(variant_relative_freq, annot=False, ax=axes[idx], linecolor="black", cmap=my_cmap,  cbar_kws={'label': "", "pad": 0.02}, vmin=0,vmax = vmax, xticklabels=False if idx != len(enrichment_df_dict.keys())-1 else True, yticklabels=True if combine_mut_rates == False else False, cbar=show_cbar_for_each )
 
         for _, spine in axes[idx].spines.items():
             spine.set_visible(True)
             spine.set_linewidth(2)
-        axes[idx].set_yticklabels( axes[idx].get_yticklabels(), rotation=1, fontsize=5)
-        axes[idx].set_title(plt_titles[idx], fontsize = 15)
+        axes[idx].set_yticklabels(axes[idx].get_yticklabels(), rotation=1, fontsize=5)
+        
+        if show_plttitles: 
+            axes[idx].set_title(plt_titles[idx], fontsize=10)
+        
         axes[idx].set_facecolor('gray')
         axes[idx].grid(False)
+
+        labels = ref if not ref_annot else ref_annot
+        ref_labels = [aa for aa in ref] if not show_only_pos else [labels[i] for i in show_only_pos]
+
+        if idx == len(enrichment_df_dict.keys())-1:
+            axes[idx].set_xticklabels(ref_labels, rotation=1, fontsize=4 if not show_only_pos else 10)
         
-        if idx == len(samples)-1:
-             axes[idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+        idx += 1
 
     if plot_coverage:
-        sns.heatmap(coverage_df.T, ax = axes[pltsize-1],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin = 0, yticklabels= False, xticklabels=False, vmax = 500)
-        axes[idx].set_xticklabels(ref[:xlim_plot] , rotation=1, fontsize=7 if data_type != "DNA" else 3)
+        sns.heatmap(pd.DataFrame(coverage), ax=axes[pltsize-1],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin=0, yticklabels=False, xticklabels=False, vmax=500, cbar=show_cbar_for_each)
         
-    if FigFolder:
-        if not os.path.exists(FigFolder):
-            os.makedirs(FigFolder)
-        plt.savefig(f"{FigFolder}/{Section}_{data_type}_mutation_enrichment_comparison.pdf", bbox_inches="tight")
+    if bias_per_pos:
+        spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
+        vmin_bias = min(bias_per_pos)
+        vmax_bias = max(bias_per_pos)
 
-    plt.show()
-    plt.close()
+        if show_only_pos:
+            bias_per_pos = [bias_per_pos[pos] for pos in show_only_pos] ## filter to pos of interest
 
 
+        sns.heatmap(pd.DataFrame(bias_per_pos).T, ax=axes[pltsize-2], cmap=spec_cmap, square=False, cbar_kws={'label': "chance of codon mutation", "pad": 0.02}, yticklabels=False, xticklabels=False, cbar=show_cbar_for_each, vmin=vmin_bias, vmax=vmax_bias)
 
-def compare_mut_enrichement_for_all(read_dict, 
-                                    ref_gene, 
-                                    Primer_out_of_triplets, 
-                                    Barcodes,
-                                    Primer_seq, 
-                                    Sections = ["S1", "S2", "S3", "S4"], 
-                                    xlim_plot = None,
-                                    FigFolder = None, 
-                                    data_type = "DNA", 
-                                    combine_mut_rates = False,
-                                    vmin = 0, 
-                                    vmax = None, 
-                                    samples = ["Mutagenesis_BC1", "NegPosSelection_BC1", "NegPosSelection_BC2", "Mutagenesis_BC2", "NegPosSelection_BC3", "NegPosSelection_BC4"], 
-                                    plt_titles = ["Mutagenesis 1", "Neg Selection 1", "Pos Selection 1", "Mutagenesis 3", "Neg Selection  3", "Pos Selection 3"],
-                                    plot_coverage = True, 
-                                    color_above_vmax_orange = True, 
-                                    show_cbar_for_each = False, 
-                                    show_plttitles = True, 
-                                    cbar_label = "mutation rate", 
-                                    show_only_pos = None, 
-                                    AApos_xlabelticks = None, 
-                                    fig_size = None, 
-                                    bias_per_pos = None, 
-                                    return_df = False, 
-                                    include_BCs = False,
-                                    seq_include_Primer_start = False, 
-                                    plt_section_ratios = None):
-    """
-    compare mutation enrichment for all sections as heatmaps with coverages and biases plotted below
-
-    read_dict: dictionary with lists of reads per samples, keys should follow this structure: name1_BCx_Sectionx_R1(/R2), e.g. Mutagenesis_BC1_S1_R1
-    ref_gene: reference gene sequence
-    Primer_out_of_triplets = dictionary with the number of nucleotides at the beginning of the primer seq before a triplet starts, following the structure {Sectionx_fwd : int, Sectionx_rev : int, Sectiony_fwd : int, ... }
-    Primer_seq: dictionary with the fwd and rev primer sequences for each section, following the structure {Sectionx_fwd : seq, Sectionx_rev : seq,  ... }
-    Barcodes: dictionary with the barcode sequences, following the structure {BCx_fwd : seq, BCx_rev : seq, BCy_fwd : seq, ... }    
-    data_type: set to "DNA", "AA" or "Codons"
-    Sections: list of sections to compare (should match the keys of read_dict)
-    combine_mut_rates: if True, for each sample, the mutation rates are summed up per position
-    samples: list of samples to compare (should match the read_dict keys, and include the respective Barcode, following the structure name1_BCx, e.g Mutagenesis_BC1)
-    plot_coverage: if True, coverage is plotted below the mutation enrichment heatmap
-    color_above_vmax_orange: if True, values above vmax are colored orange
-    show_cbar_for_each: if True, a colorbar is shown for each heatmap, otherwise colorbars are shown below 
-    show_plttitles: if True, plt_titles are shown above the heatmaps
-    show_only_pos: dictionary with the positions to show for each section
-    bias_per_pos: dictionary with the bias per position for each section, that should be plotted below
-    return_df: if True, df with the mutation rates is returned (if show_only_pos is set, only the positions of interest are returned, if not, a dict with df per section is returned)
-    include_BCs: whether or not the reads include BC seqs (if True, the name should include the BCx name also)
-    seq_include_Primer_start = whether or not the sequence includes the primer start, i.e. whether correction for triplet starts already happended during multiplexing (default: False), only used if include_BCs is False
-
-    """
-    dataType_handler = {"DNA": gather_nt_variants, "Codons": gather_codon_variants, "AA": gather_AA_variants}
-    gather_variants = dataType_handler.get(data_type)
-    if not gather_variants: 
-        print("Data type not found!")
-        exit()
-
-    pltsize = len(samples)+1 if plot_coverage else len(samples)
-    pltsize = pltsize + 1 if bias_per_pos else pltsize
-
-    if return_df:
-        if show_only_pos: 
-            final_df = pd.DataFrame()
-            position_labels = []
-        else: 
-            final_df = {}
-
-    if show_only_pos:
-        width_ratios = [len(show_only_pos[s]) for s in Sections]
-    elif plt_section_ratios:
-        width_ratios =  plt_section_ratios
-    else: 
-        width_ratios = [1]*len(Sections)
-
-    fig = plt.figure(figsize=(20*len(Sections), 20) if not fig_size else fig_size)
-    gs = gridspec.GridSpec(pltsize, len(Sections), height_ratios=[1]*pltsize, width_ratios=width_ratios)
-    axes = {}
-
-    for i in range(pltsize):
-        for j in range(len(Sections)):
-            ax = fig.add_subplot(gs[i, j])
-            axes[(i, j)] = ax
-
-    fig.subplots_adjust(wspace=0.03)
-        
-    # else:
-    #     fig, axes = plt.subplots(pltsize, len(Sections), figsize=(25*len(Sections), 25) if not fig_size else fig_size)
-    #     fig.subplots_adjust(wspace=0.03)
-
-    for s_idx, Section in enumerate(Sections):
-
-        if return_df: 
-            enriched_regions_sec_cylce= pd.DataFrame()
-
-        tripl_st = Primer_out_of_triplets[Section+"_fwd"]
-        tripl_end = Primer_out_of_triplets[Section+"_rev"]
-        ref_section = find_reference_seq(ref_gene=ref_gene,Section = Section, Primer_seq=Primer_seq, Primer_out_of_triplets=Primer_out_of_triplets)
-        ref_gene_section = ref_section
-
-        ref_section = ref_section if data_type != "AA" else translate_dna2aa(ref_section)
-
-        for idx, sample in enumerate(samples):
-            
-            if include_BCs ==True: 
-                Bc = sample[sample.index("BC"):sample.index("BC")+3]
-                catch_left = Barcodes[f"{Bc}_fwd"]+Primer_seq[Section + "_fwd"][:tripl_st]
-                catch_right = dna_rev_comp(Barcodes[f"{Bc}_rev"]+Primer_seq[Section+"_rev"][:tripl_end])
-            else: 
-                catch_left = "" if not seq_include_Primer_start else ""+Primer_seq[Section + "_fwd"][:tripl_st] ## if the primer start was already cut from the sequence, the catch_left is empty, i.e. the whole sequence is used for further analysis (the sequence was already corrected for triplet start)
-                catch_right = "" if not seq_include_Primer_start else ""+dna_rev_comp(Primer_seq[Section+"_rev"][:tripl_end])
-
-            a_seq = read_dict[sample+ f"_{Section}_R1"]
-            b_seq = read_dict[sample + f"_{Section}_R2"]
-
-            seq_variants = gather_variants(a_seq=a_seq, b_seq = b_seq, catch_left=catch_left, catch_right=catch_right, ref=ref_section, use_forward_read=True, use_rev_read=True)
-
-            seq_variants = pd.DataFrame.from_dict(seq_variants)
-
-            coverage_df = pd.DataFrame(seq_variants.sum())
-
-            _ , variant_relative_freq = mask_ref_in_variants_df(ref_seq=ref_section, variant_df=seq_variants, data_type=data_type)
-            
-            xlim_plot = xlim_plot if xlim_plot else variant_relative_freq.shape[1]
-            variant_relative_freq = variant_relative_freq.iloc[:,:xlim_plot]
-
-            if combine_mut_rates: 
-                variant_relative_freq = pd.DataFrame(variant_relative_freq.sum(axis = 0)).T
-
-            my_cmap = plt.get_cmap('viridis').copy()
-
-            if color_above_vmax_orange:
-                my_cmap.set_over('orange')
-
-            if show_only_pos:
-                positions = show_only_pos[Section]
-                variant_relative_freq = variant_relative_freq.iloc[:,positions]
-                ref_section_start = ref_gene[Primer_out_of_triplets["S1_fwd"]:].index(ref_gene_section)//3
-                ref_labels = "".join([ref_section[pos] for pos in positions]) if not AApos_xlabelticks else [AApos_xlabelticks[ref_section_start:][pos] for pos in positions]
-                coverage_df = coverage_df.iloc[positions,:]
-
-                if return_df and idx == 0:
-                    position_labels.extend(ref_labels)
-            
-            sns.heatmap(variant_relative_freq, annot=False, ax=axes[idx,s_idx], linecolor="black", cmap=my_cmap,  cbar_kws={'label': cbar_label, "pad": 0.02}, vmin=vmin,vmax = vmax, xticklabels=False if idx != len(samples)-1 else True, yticklabels=True if combine_mut_rates == False and s_idx == 0 else False, cbar=show_cbar_for_each )
-
-            for _, spine in axes[idx,s_idx].spines.items():
-                spine.set_visible(True)
-                spine.set_linewidth(2)
-            axes[idx,s_idx].set_yticklabels(axes[idx,s_idx].get_yticklabels(), rotation=1, fontsize=7)
-            
-            if show_plttitles and s_idx==0: 
-                axes[idx,s_idx].set_title(plt_titles[idx], fontsize=15)
-            
-            axes[idx,s_idx].set_facecolor('gray')
-            axes[idx,s_idx].grid(False)
-
-            if idx == len(samples)-1:
-                axes[idx,s_idx].set_xticklabels(ref_section[:xlim_plot] if not show_only_pos else ref_labels, rotation=1, fontsize=15 if data_type != "DNA" else 7)
-            
-            if return_df:
-                enriched_regions_sec_cylce = pd.concat([enriched_regions_sec_cylce, variant_relative_freq], axis=0)
-
-        if plot_coverage:
-            sns.heatmap(coverage_df.T, ax=axes[pltsize-1,s_idx],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin=0, yticklabels=False, xticklabels=False, vmax=500, cbar=show_cbar_for_each)
-        
-        if bias_per_pos:
-            spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
-            vmin_bias = min(([val for values in bias_per_pos.values() for val in values]))
-            vmax_bias = max(([val for values in bias_per_pos.values() for val in values]))
-
-            if show_only_pos:
-                positions = show_only_pos[Section]
-                biases = [bias_per_pos[Section][pos] for pos in positions] ## filter to pos of interest
-            else:
-                biases = bias_per_pos[Section]
-
-            sns.heatmap(pd.DataFrame(biases).T, ax=axes[pltsize-2, s_idx], cmap=spec_cmap, square=False, cbar_kws={'label': "chance of codon mutation", "pad": 0.02}, yticklabels=False, xticklabels=False, cbar=show_cbar_for_each, vmin=vmin_bias, vmax=vmax_bias)
-
-        if return_df: 
-            if show_only_pos: 
-                final_df = pd.concat([final_df, enriched_regions_sec_cylce], axis=1)
-            else:
-                enriched_regions_sec_cylce.index = plt_titles
-                final_df[Section] = enriched_regions_sec_cylce
         
     if not show_cbar_for_each:
         if not vmax: 
@@ -474,39 +261,38 @@ def compare_mut_enrichement_for_all(read_dict,
             exit()
         ## add at the bottom of the figure horizontally a cbar for the relative counts
         cbar_ax = fig.add_axes([0.13, 0.05, 0.15, 0.02])
-        cbar = fig.colorbar(axes[0,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-        cbar.set_label(cbar_label, fontsize = 25)
-        cbar.ax.tick_params(labelsize=20)
+        cbar = fig.colorbar(axes[0].collections[0], cax=cbar_ax, orientation = "horizontal")
+        cbar.set_label("mutation rate", fontsize = 15)
+        cbar.ax.tick_params(labelsize=10)
 
         ## add cbar also for coverage and biases
         if plot_coverage:
             cbar_ax = fig.add_axes([0.32, 0.05, 0.15, 0.02])
-            cbar = fig.colorbar(axes[pltsize-1,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-            cbar.set_label('read depth', fontsize = 25)
-            cbar.ax.tick_params(labelsize=20)
+            cbar = fig.colorbar(axes[pltsize-1].collections[0], cax=cbar_ax, orientation = "horizontal")
+            cbar.set_label('read depth', fontsize = 15)
+            cbar.ax.tick_params(labelsize=10)
 
         if bias_per_pos: 
             cbar_ax = fig.add_axes([0.51, 0.05, 0.15, 0.02])
-            cbar = fig.colorbar(axes[pltsize-2,0].collections[0], cax=cbar_ax, orientation = "horizontal")
-            cbar.set_label('chance of codon mutation', fontsize = 25)
-            cbar.ax.tick_params(labelsize=20)
-    
-    if FigFolder:
-        name = f"PACE_allSections_{data_type}mutation_enrichment_comparison.pdf" if not show_only_pos else f"PACE_allSections_{data_type}mutation_enrichment_comparison_highMutPos.pdf"
+            cbar = fig.colorbar(axes[pltsize-2].collections[0], cax=cbar_ax, orientation = "horizontal")
+            cbar.set_label('chance of codon mutation', fontsize = 15)
+            cbar.ax.tick_params(labelsize=10)
 
+    if FigFolder:
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
+        
+        dattype = data_type if not combine_mut_rates else "combined" + data_type
+        name = f"PANCE_mut_enrichment_all_sections_{dattype}.pdf" if not show_only_pos else f"PANCE_mut_enrichment_all_sections_high_mut_pos_{dattype}.pdf"
 
-        plt.savefig(f"{FigFolder}/{name}", bbox_inches="tight")
-
-    plt.show()
-    plt.clf()
+        plt.savefig(os.path.join(FigFolder, name), dpi=300)
 
     if return_df:
-        if show_only_pos and combine_mut_rates:
-            final_df.columns = position_labels 
-            final_df.index = plt_titles
-        return final_df
+        if show_only_pos:
+            combined_df = combined_df.iloc[:,show_only_pos]
+            if ref_annot:
+                combined_df.columns = [ref_annot[i] for i in show_only_pos]
+        return combined_df
 
 
 def plot_indel_freqs(indels, filename, FigFolder = None, roi_start_idx = None, roi_end_idx = None):

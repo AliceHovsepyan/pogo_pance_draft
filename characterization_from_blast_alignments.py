@@ -1,6 +1,6 @@
 import pandas as pd
 import re
-from DMS_utils import translate_dna2aa
+from utils import translate_dna2aa
 from functions_ import mask_ref_in_variants_df
 import numpy as np
 

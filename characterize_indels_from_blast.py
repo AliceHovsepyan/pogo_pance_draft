@@ -2,29 +2,12 @@ import os
 from Bio.SeqIO import QualityIO
 import numpy as np
 from matplotlib import pyplot as plt
-# import matplotlib.cm as cm
-# import gzip
-# import glob
-# import re
-from DMS_utils import dna_rev_comp, translate_dna2aa
+from utils import dna_rev_comp, translate_dna2aa
 import pandas as pd
-# import seaborn as sns
-# import pickle as pkl
-# import matplotlib.colors as mcolors
-# from scipy import stats
 import os.path
-# from matplotlib.lines import Line2D
 import json
-# import shutil
-#from evaluation_functions import *
-#from functions_ import *
 from plotting import *
-# from Bio import SeqIO
-# import matplotlib.patches as patches
-# # from collections import Counter
 from Bio import SeqIO
-# from Bio.Seq import Seq
-# from Bio.SeqRecord import SeqRecord
 from characterization_from_blast_alignments import *
 
 

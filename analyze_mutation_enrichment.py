@@ -1,10 +1,8 @@
 import os
 import json
-
 from Bio.SeqIO import QualityIO
 import numpy as np
-# import re
-from DMS_utils import dna_rev_comp, translate_dna2aa
+from utils import dna_rev_comp, translate_dna2aa
 import pandas as pd
 from functions_ import *
 from plotting import *
@@ -13,12 +11,12 @@ from Bio.Seq import Seq
 from characterization_from_blast_alignments import *
 
 
-########## please run filter_demultiplex_blast.py before running this script
+########## please run preprocess_and_align_illumina_reads.py before running this script
 
 ########## define variables for the analysis, please update accordingly
 
 data_dir = "data/fastq/P01_DP6_LOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
-#P01_DP6_LOV2/" #P02_RL8_LOV2
+
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
@@ -33,53 +31,13 @@ cut_to_roi = False # if True, the reads will be filtered for the region of inter
 variant = config["variant"] 
 used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
-full_amplicon = config["amplicon"]#[2:] ## may be different to the specific reference sequence, if the amplicon was split into different parts for the analysis
+full_amplicon = config["amplicon"]#[2:] ## may be different to the specific reference sequence, if the amplicon was split into different parts for the analysis, IMPORTANT: if you cut the start of the amplicon to keep the reads in frame, please adjust the full_amplicon accordingly
 full_amplicon_AA = translate_dna2aa(full_amplicon)
 min_coverage = 100 # minimum coverage for a position to be considered for the analysis
 
-genetic_code = {
-    'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M',
-    'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T',
-    'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K',
-    'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R',
-    'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L',
-    'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P',
-    'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q',
-    'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R',
-    'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V',
-    'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A',
-    'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E',
-    'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G',
-    'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S',
-    'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L',
-    'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*',
-    'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W',
-    }
+genetic_code = {'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M', 'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T', 'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K', 'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R', 'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L', 'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P', 'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q', 'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R', 'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V', 'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A', 'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E', 'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G', 'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S', 'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L', 'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*', 'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W'}
 
 codons = list(genetic_code.keys())
-
-ecoli_pref = { ### codons used for retron library (RL8) construction
-    "A": 'GCG',
-    "R": 'CGT',
-    "N": 'AAC',
-    "D": 'GAT',
-    "C": 'TGC',
-    "Q": 'CAG',
-    "E": 'GAA',
-    "G": 'GGC',
-    "H": 'CAT',
-    "I": 'ATT',
-    "L": "CTG",
-    "K": 'AAA',
-    "M": 'ATG',
-    "F": "TTT",
-    "P": 'CCG',
-    "S": 'AGC',
-    "T": 'ACC',
-    "W": 'TGG',
-    "Y": "TAT",
-    "V": 'GTG',
-}
 
 for data_type in datatypes:
 

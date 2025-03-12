@@ -6,7 +6,7 @@ import matplotlib.cm as cm
 #import gzip
 import glob
 #import re
-from DMS_utils import dna_rev_comp, translate_dna2aa
+from utils import dna_rev_comp, translate_dna2aa
 #import pysam
 import pandas as pd
 import seaborn as sns
