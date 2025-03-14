@@ -4,12 +4,11 @@ from Bio.SeqIO import QualityIO
 import numpy as np
 from utils import dna_rev_comp, translate_dna2aa
 import pandas as pd
-from functions_ import *
 from plotting import *
 from Bio import SeqIO
 from Bio.Seq import Seq
 from characterization_from_blast_alignments import *
-
+from matplotlib.colors import LinearSegmentedColormap
 
 ########## please run preprocess_and_align_illumina_reads.py before running this script
 
@@ -33,7 +32,10 @@ used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
 full_amplicon = config["amplicon"]#[2:] ## may be different to the specific reference sequence, if the amplicon was split into different parts for the analysis, IMPORTANT: if you cut the start of the amplicon to keep the reads in frame, please adjust the full_amplicon accordingly
 full_amplicon_AA = translate_dna2aa(full_amplicon)
-min_coverage = 100 # minimum coverage for a position to be considered for the analysis
+min_coverage = 2000 # minimum coverage for a position to be considered for the analysis
+
+bar_color = "#22577A"  # Light green to deep blue
+cmap = LinearSegmentedColormap.from_list("custom_cmap", ["#22577A", "#C7F9CC"] , N=256)
 
 genetic_code = {'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M', 'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T', 'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K', 'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R', 'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L', 'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P', 'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q', 'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R', 'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V', 'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A', 'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E', 'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G', 'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S', 'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L', 'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*', 'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W'}
 
@@ -46,11 +48,11 @@ for data_type in datatypes:
     full_reference = full_amplicon if data_type != "AA" else full_amplicon_AA
     key_of_interest = "combined" if len(read_directions) > 1 else read_directions[0]
 
-    FigFolder = f"{os.getcwd()}/output/final_output/{variant}/blast/{key_of_interest}/plots/{data_type}"
+    FigFolder = f"{os.getcwd()}/final_output/{variant}/{key_of_interest}/plots/{data_type}"
     if not os.path.exists(FigFolder):
         os.makedirs(FigFolder)
 
-    OutputFolder = f"{os.getcwd()}/output/final_output/{variant}/blast/{key_of_interest}/enrichments/{data_type}"
+    OutputFolder = f"{os.getcwd()}/final_output/{variant}/{key_of_interest}/enrichments/{data_type}"
     if not os.path.exists(OutputFolder):
         os.makedirs(OutputFolder) 
 
@@ -209,11 +211,11 @@ for data_type in datatypes:
                 file.write(json.dumps(mut_rates_dict, indent=4))
 
             print("plotting mutation enrichment...")
-            plot_mutation_enrichment(all_enrichments[key_of_interest]["enrichment_relative"] , ref_seq=roi_reference, samplename=filename, data_type=data_type, FigFolder=FigFolder)
+            plot_mutation_enrichment(all_enrichments[key_of_interest]["enrichment_relative"] , ref_seq=roi_reference, samplename=filename, data_type=data_type, FigFolder=FigFolder, cmap = cmap)
 
             ### plot coverages
             print("plotting coverage...")
-            coverage_plot(all_enrichments[key_of_interest]["all_variants"].sum(), FigFolder=FigFolder, samplename = filename)
+            coverage_plot(all_enrichments[key_of_interest]["all_variants"].sum(), FigFolder=FigFolder, samplename = filename, color = bar_color)
         
             ### plot indel frequencies
             print("plotting indel frequencies...")
@@ -234,7 +236,7 @@ for data_type in datatypes:
             mut_spec, mut_spec_perc = calc_mut_spectrum_from_enrichment(all_enrichments[key_of_interest]["enrichment_relative"], ref_seq=roi_reference, data_type=data_type)
             
             print("plotting mutagenic spectrum...")
-            plot_mutation_spectrum(mut_spec_perc, FigFolder=FigFolder, samplename = filename, data_type=data_type)
+            plot_mutation_spectrum(mut_spec_perc, FigFolder=FigFolder, samplename = filename, data_type=data_type, colormap = cmap)
 
             ## save enrichments as csv
             mut_spec_perc.to_csv(f"{OutputFolder}/{filename}_mut_spec.csv")

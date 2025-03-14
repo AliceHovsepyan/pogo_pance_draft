@@ -3,7 +3,7 @@ data
 .DS_Store
 figures
 output
-
+final_output
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -14,9 +14,36 @@ import matplotlib.gridspec as gridspec
 from functions_ import *
 from preprocessing_functions import *
 
+import matplotlib
+custom_params = {"axes.spines.right": False, "axes.spines.top": False,'axes.linewidth':1}
+sns.set_theme(context="paper",
+              style='ticks',
+              palette="Greys_r",rc=custom_params
+             )
+plt.rcParams['svg.fonttype'] = 'none'
+lw = 1
+lw = 1
+fs = 6
+hi = 6.69291
+wi = 7.08661
+nr = 5
+
+short_fn = np.vectorize(lambda x: x[:5])
+#matplotlib.rcParams.update({'font.size': fs})
+matplotlib.rcParams['axes.linewidth'] = 1
+sns.set_context("paper", rc={"font.size":fs,
+                             "axes.titlesize":fs+1,
+                             "axes.labelsize":fs,
+                             'axes.linewidth':1,    
+                            "xtick.labelsize": fs,
+                            "ytick.labelsize": fs,
+                            "legend.fontsize": fs,
+                            "legend.title_fontsize": fs+1}) 
+
+
 def coverage_plot(coverage_df, 
                   samplename = "", 
-                  FigFolder = None): 
+                  FigFolder = None, color = "blue"): 
     """
     plot read coverage 
 
@@ -25,7 +52,7 @@ def coverage_plot(coverage_df,
     FigFolder: folder to save the figure
     """
 
-    sns.barplot(coverage_df)
+    plt.plot(coverage_df, color = color)
     plt.xlabel("Position")
     plt.ylabel("Read counts")
     plt.title(f'{samplename} read depth')
@@ -52,16 +79,16 @@ def plot_mutation_spectrum(data,
     savepath = folder path to save the figure
     samplename = name of the sample 
     """
-    f, ax = plt.subplots(figsize=(6, 6))
+    f, ax = plt.subplots(figsize=(3, 3))
     sns.heatmap(data, annot=True if data_type=="DNA" else False, linewidths=.5, ax=ax, vmin = 0, cbar = False if data_type=="DNA" else True, square = True, linecolor = "black", cmap = colormap)
-    plt.xlabel('Mutated base (%)', fontsize = 10)
-    plt.ylabel('Reference base (%)', fontsize = 10)
+    plt.xlabel('Mutated base (%)')
+    plt.ylabel('Reference base (%)')
     for _, spine in ax.spines.items():
         spine.set_visible(True)
         spine.set_linewidth(.5)
-    ax.set_yticklabels(ax.get_yticklabels(), rotation=1, fontsize=10 if data_type=="DNA" else 5)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=1, fontsize=10 if data_type=="DNA" else 5)
-    plt.title(f"{samplename}", fontsize = 12)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=1)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=1)
+    plt.title(f"{samplename}")
 
     if FigFolder:
         if not os.path.exists(FigFolder):
@@ -133,31 +160,29 @@ def plot_mutation_enrichment(variants_df,
         seq_pos = [ref_seq[i:i+3] for i in range(0, len(ref_seq)//3*3, 3)]
         print(seq_pos)
 
-    plt.figure(figsize=(30,10))
-    sns.reset_defaults()
-    
+    plt.figure(figsize=(20,7))    
     ax = sns.heatmap(data=variants_df, cmap=cmap, cbar_kws={'label': cbar_label, "pad": 0.02}, yticklabels=True, xticklabels=True, center=0 if cmap == "coolwarm" else None, vmax=vmax, vmin=-vmax if (cmap=="coolwarm" and vmax) else None)
 
     for _, spine in ax.spines.items():
         spine.set_visible(True)
         spine.set_linewidth(2)
-    ax.set_yticklabels(ax.get_yticklabels(), rotation=1, fontsize=10)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=1)
     ax.xaxis.set_tick_params(width=2)
     rotation = 90 if data_type == "Codons" else 1
-    ax.set_xticklabels(seq_pos, rotation=rotation, fontsize=10)
+    ax.set_xticklabels(seq_pos, rotation=rotation)
     ax.yaxis.set_tick_params(width=2)
     ax.set_facecolor('gray')
     ax.grid(False)
-    plt.title(samplename, fontsize=20)
-    plt.xlabel("Sequence", fontsize = 20)
+    plt.title(samplename)
+    plt.xlabel("Sequence")
 
     if FigFolder:    
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
         plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.pdf", bbox_inches="tight")
         plt.savefig(f"{FigFolder}/{samplename}_{data_type}_mutation_enrichment.png", bbox_inches="tight")
-    else:
-        plt.show()
+    
+    plt.show()
     plt.close()
 
 
@@ -295,10 +320,10 @@ def plot_temporal_enrichment(enrichment_df_dict,
         return combined_df
 
 
-def plot_indel_freqs(indels, filename, FigFolder = None, roi_start_idx = None, roi_end_idx = None):
+def plot_indel_freqs(indels, filename, FigFolder = None, roi_start_idx = None, roi_end_idx = None, color1= "#C7F9CC", color2 = "#38A3A5"):
     fig, axes = plt.subplots(1, figsize=(15,5))
-    plt.plot(indels.columns, indels.loc["insertion",:], label = "insertion", alpha = 0.5)
-    plt.plot( indels.columns, indels.loc["deletion",:], label = "deletion", alpha = 0.5)
+    plt.plot(indels.columns, indels.loc["insertion",:], label = "insertion", color = color1)
+    plt.plot( indels.columns, indels.loc["deletion",:], label = "deletion",alpha = 0.5, color = color2)
 
     if roi_start_idx:
         plt.axvline(x=roi_start_idx, color='grey', linestyle='--', label = "insertion site")

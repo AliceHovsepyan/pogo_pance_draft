@@ -17,6 +17,8 @@ def divide_alignments(blast_alignments, cut_site_seq, query_seq, read_dir="R1", 
     returns:
     linker_alignments: dict, with the sequences of the linker {seq_id : {"qseq": qseq, "hseq": hseq, "midline": midline}, ...}
     LOV2_alignments: dict, with the sequences of the LOV2 insert {seq_id : {"qseq": qseq, "hseq": hseq, "midline": midline}, ...}
+    coverage_linker : np.array, with the coverage of the linker region per position 
+    coverage_LOV2 : np.array, with the coverage of the LOV2 region per position
     
     """
 
@@ -50,12 +52,13 @@ def divide_alignments(blast_alignments, cut_site_seq, query_seq, read_dir="R1", 
                 LOV2_alignments[seq_id] = {"qseq": qseq[cut_site:], "hseq": hseq[cut_site:], "midline": midline[cut_site:]}
         else:
             LOV2_start_indel_count +=1
+            continue
 
         coverages[query_from:query_to] += 1
 
     print(LOV2_start_indel_count, "sequences are excluded, since LOV2 start site could not be found in the ref (due to '-' i.e. insertions at the start of LOV2)")
 
-    return linker_alignments, LOV2_alignments
+    return linker_alignments, LOV2_alignments, coverages
 
 
 def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"): 
@@ -107,7 +110,7 @@ def restructure_alignments(blast_alignments, query_seq, read_dir = "R1"):
 
 
 
-def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read_dir = "R1", exclude_not_covered_regions = True, cut_to_same_start = True):
+def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read_dir = "R1", exclude_not_covered_regions = True):
     """
     Function to characterize the DMS alignments, by counting the number of insertions, deletions and substitutions per position
 
@@ -116,11 +119,10 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
     ref: str, reference DNA sequence 
     data_type: str, "AA", "DNA" or "Codons
     read_dir: str, "R1" or "R2"
-    cut_to_same_start: bool, if True, the sequences are cut to the same start position, otherwise, start and end positions have to be provided as query_from and query_to keys
 
     returns:
     all_variants: dict, with the counts of the variants per position
-    indels_freq: pd.DataFrame, with the counts of insertions and deletions per position (normalized to # alignments)
+    indels: pd.DataFrame, with the counts of insertions and deletions per position
     enrichment_counts: pd.DataFrame, with the counts of the variants per position, with the reference sequence masked
     enrichment_relative: pd.DataFrame, with the relative counts of the variants per position, with the reference sequence masked
 
@@ -226,8 +228,9 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
         qseq = x["qseq"]
         hseq = x["hseq"]
 
+        is_frameshift_read = (qseq.count("-") - hseq.count("-")) %3 != 0
         ##### Exclude frameshift reads 
-        if (qseq.count("-") - hseq.count("-")) %3 != 0: #qseq.count("-") != 0 or hseq.count("-") % 3 != 0:  
+        if is_frameshift_read:
             # Insertions (shown as "-" in ref) and deletions that sum up to not multiple of three lead to frameshifts -> exclude these reads
             frameshifts += 1
 
@@ -236,21 +239,16 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
             linkers["wt"] = linkers.get("wt", 0) + 1
 
         ##### Reads with deletions 
-        elif hseq.count("-") > 0 and hseq.count("-") % 3 == 0:  # Deletions that are multiple of 3, not leading to frameshifts
-            if hseq.count("-") == 3:  
-                # 3 deletions represent substitution of SG linker by a single AA, here we might also get some noise, due to sequencing errors that lead to deletions of 3 Nts but this is acceptable
+        elif hseq.count("-") > 0:  # Deletions that are multiple of 3, not leading to frameshifts
+                print("deletion", hseq)
+                del_count = int(hseq.count("-") /3)
                 hseq_filt = re.sub("-", "", hseq)
                 if read_dir == "R2": 
-                    linker = translate_dna2aa(hseq_filt)[:len(wt_linker)-1]  # Linker shortened by 3 Nts = 1 AA
+                    linker = translate_dna2aa(hseq_filt)[:len(wt_linker)-(del_count)]  # Linker shortened by 3 Nts = 1 AA
                 else: 
-                    linker = translate_dna2aa(hseq_filt)[-len(wt_linker)+1:]  # Linker shortened by 3 Nts = 1 AA
+                    linker = translate_dna2aa(hseq_filt)[-len(wt_linker)+(del_count):]  # Linker shortened by 3 Nts = 1 AA
 
                 linkers[linker] = linkers.get(linker, 0) + 1
-
-            else:  # Deletions in the linker region
-                del_count = hseq.count("-") 
-                delname = "del-" + str(del_count)
-                linkers[delname] = linkers.get(delname, 0) + 1
 
         ###### Reads with substitutions 
         elif qseq.count("-") == 0:  # Linker was substituted, but no deletions or insertions present
@@ -268,6 +266,7 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
                     linker = translate_dna2aa(hseq)[-len(wt_linker):]
                     linkers[linker] = linkers.get(linker, 0) + 1
 
+            
         ###### Reads with insertions
         elif qseq.count("-") > 0:
             insertion_len = qseq.count("-") // 3  # AA level
@@ -277,11 +276,51 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
             else: 
                 linker = translate_dna2aa(hseq)[-len(wt_linker) - insertion_len:]
                 linkers[linker] = linkers.get(linker, 0) + 1
-
         #### All other reads
         else:
             print("sequence", hseq, "does not meet any criteria")
-
+        
     print(frameshifts, "reads excluded due to frameshifts")
 
     return linkers
+
+
+### calculate mutagenic spectrum from enrichment dataframes 
+
+def calc_mut_spectrum_from_enrichment(enrichment_df, ref_seq, data_type = "DNA", set_diag_to_NA = True):
+    """
+    calculate mutagenic spectrum from enrichment dataframes
+
+    enrichment_df: dataframe with the counts of each AA/Codon/Nt at each position
+    data_type: "AA", "DNA" or "Codons"
+    ref_seq = reference DNA (if data_type = "DNA" or "Codon") or AA (if data_type = "AA") sequence
+
+    returns: pd dataframe with the counts, pd.dataframe with relative frequencies
+    """
+
+    if data_type == "DNA":
+        variants = ["A", "C", "G", "T"]
+
+    elif data_type == "Codons":
+        variants = ['AAA', 'AAC', 'AAG', 'AAT', 'ACA', 'ACC', 'ACG', 'ACT', 'AGA', 'AGC', 'AGG', 'AGT', 'ATA', 'ATC', 'ATG', 'ATT', 'CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT', 'GAA', 'GAC', 'GAG', 'GAT', 'GCA', 'GCC', 'GCG', 'GCT', 'GGA', 'GGC', 'GGG', 'GGT', 'GTA', 'GTC', 'GTG', 'GTT', 'TAA', 'TAC', 'TAG', 'TAT', 'TCA', 'TCC', 'TCG', 'TCT', 'TGA', 'TGC', 'TGG', 'TGT', 'TTA', 'TTC', 'TTG', 'TTT']
+        ref_seq = [ref_seq[i:i+3] for i in range(0,len(ref_seq)//3*3,3)]
+
+    elif data_type == "AA":
+        variants = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
+
+    mut_spectrum = pd.DataFrame(index = variants, columns = variants, data = 0, dtype = np.float64) ## rows = reference, cols = mutated
+
+    for idx, ref_var in enumerate(ref_seq): 
+        for mut_nt in enrichment_df.index:
+            mut_pos = enrichment_df.iloc[:,idx]
+            mut_count = mut_pos[mut_nt]
+            #print(mut_count)
+            mut_spectrum.loc[ref_var, mut_nt] += mut_count if mut_count > 0 else 0
+    
+    if set_diag_to_NA:
+        np.fill_diagonal(mut_spectrum.values, np.nan)
+    
+    ## percentage
+    mut_spectrum_perc = mut_spectrum/mut_spectrum.sum().sum()*100
+            
+    return mut_spectrum, mut_spectrum_perc

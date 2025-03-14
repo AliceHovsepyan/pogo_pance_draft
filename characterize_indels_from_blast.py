@@ -9,17 +9,17 @@ import json
 from plotting import *
 from Bio import SeqIO
 from characterization_from_blast_alignments import *
+from matplotlib.colors import LinearSegmentedColormap
 
+data_dir = "data/fastq/R36" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
-data_dir = "data/fastq/R35" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
-#P01_DP6_LOV2/" #P02_RL8_LOV2
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
 read_directions = [ "R1", "R2"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
 
 roi_startseq = "ttagccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
-roi_endseq = "cggccaaa".upper() ## LOV2 end
+roi_endseq = "tgctgaaaac".upper() ## LOV2 end
 filter_for_reads_with_roi = True ## if True, only reads that contain the region of interest will be considered for the analysis
 
 variant = config["variant"] 
@@ -27,7 +27,14 @@ used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
 
 min_coverage = 500
-data_type = "AA"
+data_type = "AA" ## "DNA" or "AA"
+
+wt_left_linker = "GS"
+wt_right_linker = "IDEAAKGSLH"
+
+colors = ["#22577A", "#C7F9CC"] # Light green to light blue
+
+cmap = LinearSegmentedColormap.from_list("custom_cmap", colors , N=256)
 
 
 print("############# calculation for", data_type, "#############")
@@ -103,11 +110,11 @@ for Bc in used_Barcodes:
 
         for read_dir in read_directions:
 
-            FigFolder = f"{os.getcwd()}/output/{variant}/blast00/{read_dir}/plots/{data_type}"
+            FigFolder = f"{os.getcwd()}/final_output/{variant}/{read_dir}/plots/{data_type}"
             if not os.path.exists(FigFolder):
                 os.makedirs(FigFolder)
 
-            OutputFolder = f"{os.getcwd()}/output/{variant}/blast00/{read_dir}/enrichments/{data_type}"
+            OutputFolder = f"{os.getcwd()}/final_output/{variant}/{read_dir}/enrichments/{data_type}"
             if not os.path.exists(OutputFolder):
                 os.makedirs(OutputFolder)
 
@@ -138,13 +145,14 @@ for Bc in used_Barcodes:
             cut_site_seq = roi_startseq if read_dir=="R1" else roi_endseq
 
             print(read_dir, ": dividing reads at site", cut_site_seq)
-            linker_alignments, LOV2_alignments = divide_alignments(blast_alignments, cut_site_seq, read_dir=read_dir)
+            linker_alignments, LOV2_alignments, total_coverages = divide_alignments(blast_alignments, cut_site_seq, read_dir=read_dir, query_seq=amplicon_seq)
+            total_coverages_LOV2 = total_coverages[roi_startidx:roi_endidx]
 
             all_variants, indels,  enrichment_counts, enrichment_relative = characterize_DMS_blast_alignment(LOV2_alignments, ref = insert_DNA , data_type=data_type,read_dir=read_dir, exclude_not_covered_regions=False)
             all_variants = pd.DataFrame.from_dict(all_variants)
-            coverages = all_variants.sum()
+            coverages = all_variants.sum() # includes only the reads included in the enrichment analysis, i.e. reads with indels are **not** included here
 
-            indels_freq = indels/coverages 
+            indels_freq = indels/total_coverages_LOV2 # coverages_LOV2 includes all reads, also reads with indels
 
             ###### first, analyze the enrichment within the insert 
             print("analyze enrichment within the insert for", read_dir)
@@ -162,14 +170,15 @@ for Bc in used_Barcodes:
                                          "indels_freq":indels_freq, 
                                          "indels":indels,
                                          "enrichment_counts":enrichment_counts, "enrichment_relative":enrichment_relative, 
+                                         "coverages_LOV2":total_coverages_LOV2
                                          }
 
 
             filename = f"{variant}_{Bc}_{Section}_{read_dir}_{data_type}"
 
-            plot_mutation_enrichment(enrichment_relative, ref_seq=annot_ref, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None)
+            plot_mutation_enrichment(enrichment_relative, ref_seq=annot_ref, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None, cmap = cmap)
 
-            plot_indel_freqs(indels_freq, samplename=filename, FigFolder=FigFolder)
+            plot_indel_freqs(indels_freq, filename=filename, FigFolder=FigFolder, color1 = colors[0], color2 = colors[1])
 
             ### save all enrichments
             all_enrichments[read_dir]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
@@ -180,20 +189,20 @@ for Bc in used_Barcodes:
             ###### secondly, analyze the linker variants
             if data_type == "AA":
                 print("analyze linker variants for", read_dir)
-                linkers = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = "SG" if read_dir=="R1" else "GS",read_dir=read_dir)
+                linkers = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = wt_left_linker if read_dir=="R1" else wt_right_linker,read_dir=read_dir) 
 
                 # sort linkers by frequency
                 linkers_sorted = {k: v for k, v in sorted(linkers.items(), key=lambda item: item[1], reverse=True)}
                 total_reads = sum(linkers_sorted.values())
                 linkers_sorted_perc = {k: v/total_reads*100 for k, v in linkers_sorted.items()}
 
-                # exclude wt: 
+                # exclude wt and linkers with less than 0.05% frequency
                 linkers_sorted_perc.pop("wt")
                 linkers_perc_filt = {k: v for k, v in linkers_sorted_perc.items() if v > 0.05}
 
                 ### plot linker variants
                 fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-                plt.bar(linkers_perc_filt.keys(), linkers_perc_filt.values())
+                plt.bar(linkers_perc_filt.keys(), linkers_perc_filt.values(), color = colors[0])
                 plt.xticks(rotation=90)
                 plt.ylabel("Percentage of reads")
                 plt.text(0.9, 0.93, f"Total mutation rate: {round(sum(linkers_perc_filt.values()),3)}", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
@@ -204,33 +213,18 @@ for Bc in used_Barcodes:
                 
                 linkers_perc_filt = pd.DataFrame.from_dict(linkers_perc_filt, orient="index")
                 linkers_perc_filt.to_csv(f"{OutputFolder}/{filename}_linker_distribution.csv")
-
-            if read_dir == "R2": ## analyze also changes at the end of the insert
-
-                print("######## analyze end of insert using R2 reads ########")
-                ## we need to divide our reads again: before, we excluded reads with insertions at the end of LOV2, since this seq was used to divide the reads, but now, we want to analyze exactly these reads, thus we divide the reads based on the linker seq
-                insert_endidx = amplicon_seq.index(roi_endseq) + len(roi_endseq)    
-
-                print(len(blast_alignments), "alignments before filtering for LOV2 insertion site")
-                filter_for_region = insert_endidx 
-                blast_alignments = [alignment for alignment in all_blast_alignments if alignment["hsps"][0]["query_from"] <= filter_for_region-10 and alignment["hsps"][0]["query_to"] >= filter_for_region+10]
-                print(len(blast_alignments), "alignments after filtering for LOV2 insertion site")
-
-                cut_site_seq = amplicon_seq[insert_endidx:insert_endidx+9] 
-
-                insert_alignments, _ = divide_alignments(blast_alignments, cut_site_seq, read_dir=read_dir)
-                    
+        
     
-
-
-
         #### combine enrichment for R1 and R2
-        FigFolder = f"{os.getcwd()}/output/{variant}/blast00/combined/plots/{data_type}"
+        if len(read_directions) == 1:
+            continue
+
+        FigFolder = f"{os.getcwd()}/final_output/{variant}/combined/plots/{data_type}"
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
 
 
-        OutputFolder = f"{os.getcwd()}/output/{variant}/blast00/combined/enrichments/{data_type}"
+        OutputFolder = f"{os.getcwd()}/final_output/{variant}/combined/enrichments/{data_type}"
         if not os.path.exists(OutputFolder):
             os.makedirs(OutputFolder)
 
@@ -244,16 +238,15 @@ for Bc in used_Barcodes:
 
         all_enrichments["combined"]["enrichment_counts"], all_enrichments["combined"]["enrichment_relative"] = mask_ref_in_variants_df(all_enrichments["combined"]["all_variants"], ref_seq=insert_DNA if data_type == "DNA" else insert_AA, data_type=data_type, reverse = True if read_dir == "R2" else False)
         
-
         ### combine indels of R1 and R2
-        all_enrichments["combined"]["indels_freq"] = ( all_enrichments["R1"]["indels"] + all_enrichments["R2"]["indels"])/all_enrichments["combined"]["all_variants"].sum()
+        all_enrichments["combined"]["indels_freq"] = ( all_enrichments["R1"]["indels"] + all_enrichments["R2"]["indels"])/(all_enrichments["R1"]["coverages_LOV2"] + all_enrichments["R2"]["coverages_LOV2"])
 
         filename = f"{variant}_{Bc}_{Section}_combined_{data_type}"
 
         print("analyze enrichment within the insert for combined reads")
-        plot_mutation_enrichment(all_enrichments["combined"]["enrichment_relative"] , ref_seq=insert_DNA if data_type =="DNA" else insert_AA, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None)
+        plot_mutation_enrichment(all_enrichments["combined"]["enrichment_relative"] , ref_seq=insert_DNA if data_type =="DNA" else insert_AA, samplename=filename, data_type=data_type, FigFolder=FigFolder, vmax=None, cmap = cmap)
 
-        plot_indel_freqs(all_enrichments["combined"]["indels_freq"], samplename=filename, FigFolder=FigFolder)
+        plot_indel_freqs(all_enrichments["combined"]["indels_freq"], filename=filename, FigFolder=FigFolder, color1 = colors[0], color2 = colors[1])
 
         ### save all enrichments
         all_enrichments["combined"]["enrichment_relative"].to_csv(f"{OutputFolder}/{filename}_enrichment_relative.csv")
