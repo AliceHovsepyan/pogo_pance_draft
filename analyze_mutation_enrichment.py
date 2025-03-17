@@ -35,7 +35,14 @@ full_amplicon_AA = translate_dna2aa(full_amplicon)
 min_coverage = 2000 # minimum coverage for a position to be considered for the analysis
 
 bar_color = "#22577A"  # Light green to deep blue
-cmap = LinearSegmentedColormap.from_list("custom_cmap", ["#22577A", "#C7F9CC"] , N=256)
+cmap = LinearSegmentedColormap.from_list("custom_cmap", [
+    #"#2C3E5E",  
+    "#22577A",  # Deep blue
+    "#38A3A5",  # Teal
+    "#57CC99",  # Medium green
+    "#80ED99",  # Bright green
+    "#C7F9CC"   # Light pastel green
+] , N=256)
 
 genetic_code = {'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M', 'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T', 'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K', 'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R', 'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L', 'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P', 'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q', 'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R', 'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V', 'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A', 'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E', 'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G', 'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S', 'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L', 'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*', 'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W'}
 
@@ -152,9 +159,9 @@ for data_type in datatypes:
                 all_enrichments[read_dir]["all_variants"].loc[:,read_depth < min_coverage] = 0
                 all_enrichments[read_dir]["enrichment_counts"].loc[:,read_depth < min_coverage] = np.nan
                 all_enrichments[read_dir]["enrichment_relative"].loc[:, read_depth < min_coverage] = np.nan
-                if data_type == "DNA":
-                    all_enrichments[read_dir]["indels"].loc[:, read_depth < min_coverage] = 0
-                    all_enrichments[read_dir]["indel_freqs"].loc[:, read_depth < min_coverage] = 0
+                # if data_type == "DNA":
+                #     all_enrichments[read_dir]["indels"].loc[:, read_depth < min_coverage] = 0
+                #     all_enrichments[read_dir]["indel_freqs"].loc[:, read_depth < min_coverage] = 0
 
             # set reference sequence to the region of interest
             if cut_to_roi:

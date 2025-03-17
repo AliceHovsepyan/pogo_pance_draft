@@ -94,6 +94,7 @@ def plot_mutation_spectrum(data,
         if not os.path.exists(FigFolder):
             os.makedirs(FigFolder)
         plt.savefig(f"{FigFolder}/{samplename}_mutagenic_spectrum_perc.pdf")
+        plt.savefig(f"{FigFolder}/{samplename}_mutagenic_spectrum_perc.png")
         
     plt.show()
     plt.close()
@@ -171,7 +172,7 @@ def plot_mutation_enrichment(variants_df,
     rotation = 90 if data_type == "Codons" else 1
     ax.set_xticklabels(seq_pos, rotation=rotation)
     ax.yaxis.set_tick_params(width=2)
-    ax.set_facecolor('gray')
+   # ax.set_facecolor('gray')
     ax.grid(False)
     plt.title(samplename)
     plt.xlabel("Sequence")
