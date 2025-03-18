@@ -14,7 +14,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 ########## define variables for the analysis, please update accordingly
 
-data_dir = "data/fastq/P01_DP6_LOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/fastq/P02_RL8_LOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
@@ -34,7 +34,7 @@ full_amplicon = config["amplicon"]#[2:] ## may be different to the specific refe
 full_amplicon_AA = translate_dna2aa(full_amplicon)
 min_coverage = 2000 # minimum coverage for a position to be considered for the analysis
 
-bar_color = "#22577A"  # Light green to deep blue
+bar_color = "#22577A"  
 cmap = LinearSegmentedColormap.from_list("custom_cmap", [
     #"#2C3E5E",  
     "#22577A",  # Deep blue
@@ -206,12 +206,10 @@ for data_type in datatypes:
             mut_rate = all_enrichments[key_of_interest]["enrichment_relative"].sum().sum()
 
             print(f'The mutation rate is estimated to be {mut_rate.round(3)} {data_type} mutations per sequence')
-            print(f'If we correct for the coverage, we expect a mutation rate of {round(mut_rate/average_coverage*100,3)} {data_type} mutations per sequence')
 
             mut_rates_dict = {"calculated_on": data_type, 
                             "coverage": average_coverage,
                             "mut_per_sequence": mut_rate,
-                            "mut_per_sequence_coverage_corrected": mut_rate/average_coverage*100
                             }
             
             with open(f'{OutputFolder}/{filename}_mutation_rates.json', 'w') as file:

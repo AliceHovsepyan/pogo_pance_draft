@@ -172,7 +172,7 @@ def plot_mutation_enrichment(variants_df,
     rotation = 90 if data_type == "Codons" else 1
     ax.set_xticklabels(seq_pos, rotation=rotation)
     ax.yaxis.set_tick_params(width=2)
-   # ax.set_facecolor('gray')
+    #ax.set_facecolor('#ECEBE4')
     ax.grid(False)
     plt.title(samplename)
     plt.xlabel("Sequence")
@@ -202,7 +202,10 @@ def plot_temporal_enrichment(enrichment_df_dict,
                             return_df = True,
                             FigFolder = None,
                             figsize = (20,10),
-                            data_type = "AA"):
+                            data_type = "AA",
+                            enrichment_cmap = "viridis", 
+                            set_over_color = "orange", 
+                            coverage_cmap = "magma"):
 
     if return_df: 
         combined_df = pd.DataFrame(index = (enrichment_df_dict.keys()), columns = list(range(len(ref))), data = 0, dtype = np.float64)
@@ -225,10 +228,10 @@ def plot_temporal_enrichment(enrichment_df_dict,
 
     idx = 0 
 
-    my_cmap = plt.get_cmap('viridis').copy()
+    my_cmap = plt.get_cmap(enrichment_cmap).copy()
 
     if color_above_vmax_orange:
-        my_cmap.set_over('orange')
+        my_cmap.set_over(set_over_color)
 
     for cycles, sample_data in enrichment_df_dict.items():
         if combine_mut_rates:
@@ -267,7 +270,7 @@ def plot_temporal_enrichment(enrichment_df_dict,
         idx += 1
 
     if plot_coverage:
-        sns.heatmap(pd.DataFrame(coverage), ax=axes[pltsize-1],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin=0, yticklabels=False, xticklabels=False, vmax=500, cbar=show_cbar_for_each)
+        sns.heatmap(pd.DataFrame(coverage), ax=axes[pltsize-1],square=False, cbar_kws={'label': f"coverage pos selection c3", "pad": 0.02}, vmin=0, yticklabels=False, xticklabels=False, vmax=500, cbar=show_cbar_for_each, cmap=coverage_cmap)
         
     if bias_per_pos:
         spec_cmap = sns.light_palette("black", n_colors=30, reverse=False, as_cmap=True)
