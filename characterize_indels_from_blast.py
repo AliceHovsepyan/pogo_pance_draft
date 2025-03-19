@@ -11,7 +11,7 @@ from Bio import SeqIO
 from characterization_from_blast_alignments import *
 from matplotlib.colors import LinearSegmentedColormap
 
-data_dir = "data/fastq/R36" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/fastq/R35" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
@@ -26,11 +26,11 @@ variant = config["variant"]
 used_Barcodes = config["used_Barcodes"]
 Sections = config["Sections"] 
 
-min_coverage = 500
+min_coverage = 2000
 data_type = "AA" ## "DNA" or "AA"
 
 wt_left_linker = "GS"
-wt_right_linker = "IDEAAKGSLH"
+wt_right_linker = "IDEAAKGSLHP"
 
 colors = ["#22577A", "#C7F9CC"] # Light green to light blue
 
@@ -253,3 +253,5 @@ for Bc in used_Barcodes:
         all_enrichments["combined"]["all_variants"].to_csv(f"{OutputFolder}/{filename}_all_variants.csv")
         all_enrichments["combined"]["indels_freq"].to_csv(f"{OutputFolder}/{filename}_indels.csv")
         all_enrichments["combined"]["enrichment_counts"].to_csv(f"{OutputFolder}/{filename}_enrichment_counts.csv")
+
+        print( "DONE!")

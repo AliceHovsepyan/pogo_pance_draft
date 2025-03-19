@@ -37,7 +37,7 @@ if __name__ == "__main__":
         output_file = f"{output_folder}/{input_file}"
 
         # Construct and run the command
-        command = f"chopper -q 20 --minlength 1800 --maxlength 2100 -i {input_folder}/{input_file} | gzip > {output_file}"
+        command = f"chopper -q 20 --minlength 1800 --maxlength 2200  -i {input_folder}/{input_file} | gzip > {output_file}" #--headcrop 50 --endcrop 50 --minlength 1800 --maxlength 2100 
         print(f"Processing {input_file} -> {output_file}")
 
         subprocess.run(command, shell=True, check=True)

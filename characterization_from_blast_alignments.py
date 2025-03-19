@@ -240,7 +240,6 @@ def get_linker_variants_from_blast_alignment(linker_alignments, wt_linker = "SG"
 
         ##### Reads with deletions 
         elif hseq.count("-") > 0:  # Deletions that are multiple of 3, not leading to frameshifts
-                print("deletion", hseq)
                 del_count = int(hseq.count("-") /3)
                 hseq_filt = re.sub("-", "", hseq)
                 if read_dir == "R2": 

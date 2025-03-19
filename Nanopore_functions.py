@@ -153,7 +153,7 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
 
 import re
 
-def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
+def read_cleaning_(input_folder, ref, cut_n_bases_from_start=48):
     bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
     all_reads = []
     indels = pd.DataFrame(columns=range(len(ref)), index=["I", "D"], data=0)
@@ -222,3 +222,124 @@ def read_cleaning_(input_folder, ref, cut_n_bases_from_start=9):
 
     print("Total reads:", len(all_reads))
     return all_reads, indels, all_qualities
+
+
+
+def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right, left_linker_region_len, righ_linker_region_len):
+    """ 
+    Function to extract the linker regions from the Nanopore reads
+
+    args:
+    input_folder: str, path to the folder with the Nanopore bam files
+    ref: str, reference sequence
+    cut_site_seq_left: seq of the left linker (start of the insert)
+    cut_site_seq_right: seq of the right linker (end of the insert)
+    left_linker_region_len: int, length of the left linker region (i.e. the number of bases to extract before the left linker pos) = len left linker read
+    righ_linker_region_len: int, length of the right linker region (i.e. the number of bases to extract after the right linker pos) = len right linker read
+
+    returns:
+    all_left_linkers: list, with the left linker regions
+    all_right_linkers: list, with the corresponding right linker regions
+
+    """
+    bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
+    all_left_linkers = []
+    all_right_linkers = []
+    indels = pd.DataFrame(columns=range(len(ref)), index=["I", "D"], data=0)
+    #all_qualities = []
+    left_linker_excluded = 0
+    right_linker_excluded = 0
+
+    cigar_pattern = re.compile(r"(\d+)([MIDNSHP=X])")  # Regex to extract (length, operation)
+
+    for file_nr, bamfile_name in enumerate(bam_files):
+        bam_path = os.path.join(input_folder, bamfile_name)
+        bamfile = pysam.AlignmentFile(bam_path, "rb")
+
+        print("Status:", file_nr + 1, "/", len(bam_files), "done")
+
+        # left_linker_region = list(range(left_linker_pos-left_linker_region_len, left_linker_pos))
+        # right_linker_region = list(range(right_linker_pos, right_linker_pos+righ_linker_region_len))
+
+        for read in bamfile.fetch():
+            if read.is_unmapped or read.query_sequence is None:
+                print(f"Skipping read {read.query_name}")
+                continue
+
+            alignment_start = read.reference_start
+            seq = read.query_sequence
+            qualitities = read.query_qualities
+            #refined_qualities = []
+            refined_seq_list = []
+            refined_ref_list = []
+            ref_pos = 0  # Reference position in the read
+
+            cigar_operations = [(int(length), op) for length, op in cigar_pattern.findall(read.cigarstring)]
+
+            query_pos = 0  # Track position in the read sequence
+            ref_pos = alignment_start  # Start position in reference
+
+            for length, operation in cigar_operations:
+                if operation == "M":  # Matches (or mismatches)
+                    refined_seq_list.extend(seq[query_pos:query_pos + length])
+                    #refined_qualities.extend(qualitities[query_pos:query_pos + length])
+                    refined_ref_list.extend(ref[ref_pos:ref_pos+length])
+                    query_pos += length
+                    ref_pos += length
+
+                elif operation == "I":  # Insertion (extra bases in read)
+                    indels.loc["I", ref_pos] += 1# length
+                    refined_seq_list.extend(seq[query_pos:query_pos + length])
+                    refined_ref_list.extend("-"*length)
+                    query_pos += length
+                elif operation == "D":  # Deletion (missing bases in read)
+                    #refined_qualities.extend([""] * length)
+                    refined_seq_list.extend("-" * length)
+                    indels.loc["D",ref_pos] += 1#length
+                    refined_ref_list.extend(ref[ref_pos:ref_pos+length])
+                    ref_pos += length
+                elif operation == "N":  # Skipped region in reference
+                    ref_pos += length
+                elif operation == "S":  # Soft clipping (ignored bases at ends)
+                    query_pos += length
+                elif operation == "H":  # Hard clipping (ignored bases, not in read)
+                    continue
+                elif operation == "P":  # Padding (shouldn't appear in nanopore data)
+                    continue
+            
+            refined_seq = "".join(refined_seq_list)
+            refined_ref = "".join(refined_ref_list)
+
+            # Cut off bases from the start if needed
+            # if alignment_start < cut_n_bases_from_start:
+            #     cut_start = cut_n_bases_from_start - alignment_start
+            #     refined_seq = refined_seq[cut_start:]
+            #     refined_qualities = refined_qualities[cut_start:]
+
+            #     all_reads.append(refined_seq)
+            #     all_qualities.append(refined_qualities)
+
+            cut_site_left = refined_ref_list.find(cut_site_seq_left) 
+
+            if cut_site_left != -1: ## if -1, there are insertions in start of LOV2, thus seq not in ref seq and we do not include these seq
+                all_left_linkers.append(refined_seq[cut_site_left-left_linker_region_len:cut_site_left])
+            else: 
+                all_left_linkers.append("")
+                left_linker_excluded +=1
+
+
+            cut_site_right = refined_ref_list.find(cut_site_seq_right) 
+
+            if cut_site_right != -1: ## if -1, there are insertions in end of LOV2, thus seq not in ref seq and we do not include these seq
+                all_right_linkers.append(refined_seq[cut_site_right:cut_site_right+righ_linker_region_len])
+            else: 
+                all_right_linkers.append("")
+                right_linker_excluded +=1
+
+        print(f"Processed {bamfile_name}")
+
+    print("Total left linkers:", sum([l != "" for l in all_left_linkers]))
+    print("Total right linkers:", sum([l != "" for l in all_right_linkers]))
+    print(left_linker_excluded, "left linkers are excluded")
+    print(right_linker_excluded, "right linkers are excluded")
+    return all_left_linkers, all_right_linkers

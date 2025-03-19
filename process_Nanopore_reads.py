@@ -18,7 +18,7 @@ if __name__ == "__main__":
     input_folder = args.input
     output_folder = args.output
     ref_path = args.ref_path
-    cut_n_bases_from_start = 9 ## cut the first 9 bases of the reads
+    cut_n_bases_from_start = 48 ## cut the first 9 bases of the reads
 
     if not os.path.exists(input_folder):
         raise FileNotFoundError(f"Input folder '{input_folder}' does not exist!")
