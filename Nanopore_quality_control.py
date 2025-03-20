@@ -20,8 +20,6 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Input folder '{input_folder}' does not exist!")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    #ref_path = args.ref_path
-# Step 2: Run BLAST for each dataset file against their respective reference
 
 
     print(f"running Nanoplot on {input_folder}...")

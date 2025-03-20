@@ -11,14 +11,14 @@ from Bio import SeqIO
 from characterization_from_blast_alignments import *
 from matplotlib.colors import LinearSegmentedColormap
 
-data_dir = "data/fastq/R35" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/fastq/R36" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
 read_directions = [ "R1", "R2"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
 
-roi_startseq = "ttagccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
+roi_startseq = "gccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
 roi_endseq = "tgctgaaaac".upper() ## LOV2 end
 filter_for_reads_with_roi = True ## if True, only reads that contain the region of interest will be considered for the analysis
 
@@ -29,8 +29,8 @@ Sections = config["Sections"]
 min_coverage = 2000
 data_type = "AA" ## "DNA" or "AA"
 
-wt_left_linker = "GS"
-wt_right_linker = "IDEAAKGSLHP"
+wt_left_linker = "INESSGL"
+wt_right_linker = "IDEAAKGSLHPP"
 
 colors = ["#22577A", "#C7F9CC"] # Light green to light blue
 
@@ -189,7 +189,7 @@ for Bc in used_Barcodes:
             ###### secondly, analyze the linker variants
             if data_type == "AA":
                 print("analyze linker variants for", read_dir)
-                linkers = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = wt_left_linker if read_dir=="R1" else wt_right_linker,read_dir=read_dir) 
+                linkers , _ = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = wt_left_linker if read_dir=="R1" else wt_right_linker,read_dir=read_dir) 
 
                 # sort linkers by frequency
                 linkers_sorted = {k: v for k, v in sorted(linkers.items(), key=lambda item: item[1], reverse=True)}
@@ -199,6 +199,8 @@ for Bc in used_Barcodes:
                 # exclude wt and linkers with less than 0.05% frequency
                 linkers_sorted_perc.pop("wt")
                 linkers_perc_filt = {k: v for k, v in linkers_sorted_perc.items() if v > 0.05}
+
+                linkers_perc_filt, linker_renaming = rename_left_linkers(linkers_perc_filt.keys(), linkers_perc_filt) if read_dir=="R1" else rename_right_linkers(linkers_perc_filt.keys(), linkers_perc_filt)
 
                 ### plot linker variants
                 fig, ax = plt.subplots(1, 1, figsize=(15, 5))
@@ -213,6 +215,9 @@ for Bc in used_Barcodes:
                 
                 linkers_perc_filt = pd.DataFrame.from_dict(linkers_perc_filt, orient="index")
                 linkers_perc_filt.to_csv(f"{OutputFolder}/{filename}_linker_distribution.csv")
+
+                with open(f"{OutputFolder}/{filename}_linker_renaming.json", "w") as file:
+                    json.dump(linker_renaming, file)
         
     
         #### combine enrichment for R1 and R2
