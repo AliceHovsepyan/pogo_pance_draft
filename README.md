@@ -80,7 +80,15 @@ Please run the `Nanopore_filtering_alignment_processing.sh` script, which automa
 	
 3. **alignment** using `minimap2` 
 
-4. **processing**, i.e. force reads in right frame: 
+4. perform plotting for **quality control** using `NanoPlot` on the .bam files
+	- to run this separately, you can run: 
+		- either, to run on one (or more) bam files (thereby specifying the files themselves)
+			`NanoPlot -t 2 --bam alignment1.bam alignment2.bam alignment3.bam -o bamplots_downsampled`
+		- or, to run the analysis on **all** .bam files within a folder using the `Nanopore_quality_control.py` file: 
+			`python Nanopore_quality_control.py /var/lib/minknow/data/basecalling/pass/barcode09/alignment /home/student/anna/DMS_analysis/output/Nanopore/barcode09/quality_control`
+			(trouble shooting: if an error occurs, this can be if no read is mapped in one of the .bam files, deleting this specific (empty) bam-file fixes this)
+
+5. **processing**, i.e. force reads in right frame: 
 	- if there is a deletion in a read, this is shown as "-"
 	- if there is an insertion in a read, this base is skipped
 	- the remaining read is kept as it is 
@@ -89,14 +97,6 @@ Please run the `Nanopore_filtering_alignment_processing.sh` script, which automa
 
 	- to run this processing step seperately, you can run the `process_Nanopore_reads.py ` file e.g.:
 		`python process_Nanopore_reads.py /var/lib/minknow/data/basecalling/pass/barcode05/alignment/ /home/student/anna/DMS_analysis/data/Nanopore/barcode05 /var/lib/minknow/data/AraC_S170_LOV_R2_ref.fa`
-	
-5. perform plotting for **quality control** using `NanoPlot`
-	- to run this separately, you can run: 
-		- either, to run on one (or more) bam files (thereby specifying the files themselves)
-			`NanoPlot -t 2 --bam alignment1.bam alignment2.bam alignment3.bam -o bamplots_downsampled`
-		- or, to run the analysis on **all** .bam files within a folder using the `Nanopore_quality_control.py` file: 
-			`python Nanopore_quality_control.py /var/lib/minknow/data/basecalling/pass/barcode09/alignment /home/student/anna/DMS_analysis/output/Nanopore/barcode09/quality_control`
-
 
 # pymol
 

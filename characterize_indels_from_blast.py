@@ -11,7 +11,7 @@ from Bio import SeqIO
 from characterization_from_blast_alignments import *
 from matplotlib.colors import LinearSegmentedColormap
 
-data_dir = "data/fastq/R36" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/fastq/P04_RL1_linkers" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
