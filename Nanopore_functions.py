@@ -108,17 +108,25 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
     included_seq = 0
     indels = pd.DataFrame(columns = range(len(ref)), index = ["insertion"], data = 0)
 
-    ref = translate_dna2aa(ref) if data_type == "AA" else ref
+    reference = translate_dna2aa(ref) if data_type == "AA" else ref
+    if data_type == "Codons": 
+        reference = [reference[i:i+3] for i in range(0, len(reference), 3)]
 
     if data_type == "AA":
-        for idx in range(len(ref)):
+        for idx in range(len(reference)):
             all_variants[idx] = {'A':0, 'C':0, 'D':0, 'E':0, 'F':0, 'G':0, 
                                     'H':0, 'I':0, 'K':0, 'L':0, 'M':0, 'N':0, 
                                     'P':0, 'Q':0, 'R':0, 'S':0, 'T':0, 'V':0, 
                                     'W':0, 'Y':0, '*':0, 'X':0} ## X: are triplets with missing nucleotides (i.e. in the aligned seq, "-" is present), that would lead to a frameshift
     elif data_type == "DNA": 
-        for idx in range(len(ref)):
+        for idx in range(len(reference)):
             all_variants[idx] = {'A':0, 'C':0, 'G':0, 'T':0, "-":0}
+    
+    else:
+        codons = ['AAA', 'AAC', 'AAG', 'AAT', 'ACA', 'ACC', 'ACG', 'ACT', 'AGA', 'AGC', 'AGG', 'AGT', 'ATA', 'ATC', 'ATG', 'ATT', 'CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT', 'GAA', 'GAC', 'GAG', 'GAT', 'GCA', 'GCC', 'GCG', 'GCT', 'GGA', 'GGC', 'GGG', 'GGT', 'GTA', 'GTC', 'GTG', 'GTT', 'TAA', 'TAC', 'TAG', 'TAT', 'TCA', 'TCC', 'TCG', 'TCT', 'TGA', 'TGC', 'TGG', 'TGT', 'TTA', 'TTC', 'TTG', 'TTT', 'X']
+        for idx in range(len(reference)): 
+            all_variants[idx] = {codon: 0 for codon in codons}
+
 
     for alignment in aligned_reads:
         
@@ -133,11 +141,15 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
                     indels.loc["insertion", pos] += 1
                     shift += 1 ## to correct for the shift in the index, due to the insertion
 
+        if data_type == "Codons":
+            alignment = [alignment[i:i+3] for i in range(0, len(alignment)//3*3, 3)]
 
-        if data_type == "AA":
+        elif data_type == "AA":
             alignment = translate_dna2aa(alignment)
         
         for idx, variant in enumerate(alignment): 
+            if "-" in variant:
+                variant = "X"
             all_variants[idx][variant] += 1
        
     indels_freq = indels/len(aligned_reads)
@@ -146,7 +158,7 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
 
     all_variants = pd.DataFrame.from_dict(all_variants)
 
-    enrichment_counts, enrichment_relative = mask_ref_in_variants_df(variant_df=all_variants, ref_seq=ref, data_type=data_type)
+    enrichment_counts, enrichment_relative = mask_ref_in_variants_df(variant_df=all_variants, ref_seq=reference if data_type=="AA" else ref, data_type=data_type)
     
 
     return all_variants, enrichment_counts,enrichment_relative, indels_freq
@@ -444,3 +456,36 @@ def get_linker_variants_for_Nanopore(linker_alignments, wt_linker = "SG", read_d
     print(frameshifts, "reads excluded due to frameshifts")
 
     return linker_counts, linker_list
+
+def get_genotype_dict_from_AAseqs(all_Aas, ref_AAseq, ref_aa_annot, not_masked_positions = None, combined = False): 
+    """
+    Function to get the genotype dictionary from the AA sequences of the reads
+    all_Aas: list of AA sequences of the reads
+    ref_AAseq: reference AA sequence
+    ref_aa_annot: list of the reference AA annotations
+    not_masked_positions: list of positions that should be considered
+
+    returns: 
+    genotypes: dictionary with the genotypes and their counts
+    """
+    genotypes = {}
+
+    for read in all_Aas:
+        variant = []
+        for idx, Aa in enumerate(read): 
+            if not_masked_positions and idx not in not_masked_positions: ## if the position is masked, skip
+                continue
+            else:
+                if Aa != "X" and Aa != ref_AAseq[idx]: 
+                    observed_mut = f"{ref_aa_annot[idx]}{Aa}" if combined else ref_aa_annot[idx]
+                    variant.append(observed_mut)
+            
+        if len(variant) == 0: 
+            variant = "WT"
+        else: 
+            variant = "_".join(variant)
+
+        genotypes[variant] = genotypes.get(variant, 0) + 1
+        
+    return genotypes
+        

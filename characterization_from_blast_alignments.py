@@ -178,6 +178,7 @@ def characterize_DMS_blast_alignment(DMS_alignments, ref, data_type = "AA", read
 
         if data_type == "AA":
             hseq = translate_dna2aa(hseq)
+            
         elif data_type == "Codons":
             hseq = [hseq[i:i+3] for i in range(0, len(hseq), 3)]
 
