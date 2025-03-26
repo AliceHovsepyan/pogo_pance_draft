@@ -8,7 +8,7 @@ import os.path
 import json
 from plotting import *
 from Bio import SeqIO
-from DMS_analysis.Illumina_functions import *
+from Illumina_functions import *
 from matplotlib.colors import LinearSegmentedColormap
 from linker_analysis_functions import *
 

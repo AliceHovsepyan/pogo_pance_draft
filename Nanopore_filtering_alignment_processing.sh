@@ -20,6 +20,7 @@ do
     echo "################## Plotting quality plots... ##################"
     python3 Nanopore_quality_control.py "$output_folder/minimap2_alignment" "$output_plot_folder"
 
+    ### IMPORTANT: make sure to only run process_Nanopore_reads.py (below) if you don't expect indels to happen (i.e. exclude this from analysis for the linker library)!!!!!, since the reads will be forced to be in frame, meaning that you will lose all insertions
     echo "################## Running read processing... ##################"
     python3 process_Nanopore_reads.py "$output_folder/minimap2_alignment" "$output_folder/processed_reads" "$reference_file"
 

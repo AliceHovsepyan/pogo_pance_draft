@@ -33,7 +33,7 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
 
     reference = translate_dna2aa(ref) if data_type == "AA" else ref
     if data_type == "Codons": 
-        reference = [reference[i:i+3] for i in range(0, len(reference), 3)]
+        reference = [reference[i:i+3] for i in range(0, len(reference)//3*3, 3)]
 
     if data_type == "AA":
         for idx in range(len(reference)):

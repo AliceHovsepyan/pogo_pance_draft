@@ -7,14 +7,14 @@ import pandas as pd
 from plotting import *
 from Bio import SeqIO
 from Bio.Seq import Seq
-from DMS_analysis.Illumina_functions import *
+from Illumina_functions import *
 from matplotlib.colors import LinearSegmentedColormap
 
 ########## please run preprocess_and_align_illumina_reads.py before running this script
 
 ########## define variables for the analysis, please update accordingly
 
-data_dir = "data/fastq/P02_RL8_LOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/Illumina/P03_RL8_AraCLOV2" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
