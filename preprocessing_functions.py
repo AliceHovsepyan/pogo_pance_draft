@@ -2,23 +2,9 @@
 import os
 from Bio.SeqIO import QualityIO
 import numpy as np
-#from matplotlib import pyplot as plt
-#import matplotlib.cm as cm
-#import gzip
-#import glob
-#import re
 from utils import dna_rev_comp, translate_dna2aa
-#import pysam
 import pandas as pd
-#import seaborn as sns
-#import pickle as pkl
-#import matplotlib.colors as mcolors
-#from scipy import stats
-#import os.path
-#from matplotlib.lines import Line2D
-#import json
-#import shutil
-#import matplotlib.gridspec as gridspec
+
 
 def read_sequences(variant, 
                    catch_left, 
@@ -92,17 +78,12 @@ def read_sequences(variant,
 
 def demultiplex_reads(a_seqs:list, 
                       b_seqs:list,
-                    #   ref_gene:str, 
                       Barcodes:dict, 
                       Primer_seq:dict, 
                       Primer_out_of_frame:dict,
                       used_Barcodes:list, 
                       Sections:list, 
                       max_mismatch_primerseq:int = 5, 
-                    #   filter_for_n_mut:bool = True,
-                    #   filter_for_read_len:bool = False,
-                    #   read_len_treshold:int = 50,
-                    #   n_mut_treshold:int = 20, 
                       a_ids:list = None, 
                       b_ids:list = None, 
                       cut_BC_seq = True,
@@ -154,12 +135,6 @@ def demultiplex_reads(a_seqs:list,
                 b_mismatch_to_primer_seq = sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])])
                 if seq[:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"] and b_mismatch_to_primer_seq <= max_mismatch_primerseq:
                     rev_idxs.append(b_idx)
-
-            # fwd_idxs = [i for i, seq in enumerate(a_seqs) if (seq[:len(Barcodes[Barcode + "_fwd"])] == Barcodes[Barcode + "_fwd"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_fwd"]):len(fwd_BC_Primer_seq)], Primer_seq[Section+"_fwd"])]) <= max_mismatch_primerseq)]
-            # print(fwd_idxs[:10])
-                        
-            # rev_idxs = [i for i, seq in enumerate(b_seqs) if (seq[:len(Barcodes[Barcode + "_rev"] )] == Barcodes[Barcode + "_rev"] and sum([sequence!=primer_ref for sequence, primer_ref in zip(seq[len(Barcodes[Barcode + "_rev"]):len(rev_BC_Primer_seq)], Primer_seq[Section+"_rev"])]) <= max_mismatch_primerseq) ]
-            # print(len(rev_idxs))
             
             indexes = set(
                 [idx for idx in fwd_idxs if b_seqs[idx][:len(Barcodes[Barcode + "_rev"])] == Barcodes[Barcode + "_rev"]]  +  
@@ -197,18 +172,6 @@ def demultiplex_reads(a_seqs:list,
             else: ## cut sequences at the catch_left and catch_right positions, reads do not have to be complete 
                 a_seq_Bc_Sec = [a[a.index(catch_left)+len(catch_left):] if catch_left in a else "" for a in a_seq_Bc_Sec]
                 b_seq_Bc_Sec = [b[b.index(dna_rev_comp(catch_right))+len(catch_right):] if dna_rev_comp(catch_right) in b else "" for b in b_seq_Bc_Sec]
-
-            # if filter_for_n_mut or filter_for_read_len:
-            #     ref_seq_Section = find_reference_seq(ref_gene = ref_gene, Primer_seq = Primer_seq, Section = Section, Primer_out_of_triplets = Primer_out_of_triplets)
-
-            #     if cut_BC_seq:
-            #         catch_left = "" if cut_primer_start else Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]] ## if the BC and primer seq was cut, the catch_left and catch_right should be empty
-            #         catch_right = "" if cut_primer_start else Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
-            #     else:
-            #         catch_left = Barcodes[Barcode + "_fwd"] + Primer_seq[Section + "_fwd"][:Primer_out_of_triplets[Section + "_fwd"]]
-            #         catch_right = dna_rev_comp(Barcodes[Barcode + "_rev"]) + Primer_seq[Section + "_rev"][:Primer_out_of_triplets[Section + "_rev"]]
-                
-            #     a_seq_Bc_Sec, b_seq_Bc_Sec = read_filtering(a_seq_Bc_Sec, b_seq_Bc_Sec, catch_left=catch_left, catch_right=catch_right, n_mut_treshold = n_mut_treshold, ref = ref_seq_Section, filter_for_read_len = read_len_treshold)
 
             read_Dict[f"{Barcode}_{Section}_R1"] = a_seq_Bc_Sec
             read_Dict[f"{Barcode}_{Section}_R2"] = b_seq_Bc_Sec

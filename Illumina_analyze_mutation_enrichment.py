@@ -7,7 +7,7 @@ import pandas as pd
 from plotting import *
 from Bio import SeqIO
 from Bio.Seq import Seq
-from characterization_from_blast_alignments import *
+from DMS_analysis.Illumina_functions import *
 from matplotlib.colors import LinearSegmentedColormap
 
 ########## please run preprocess_and_align_illumina_reads.py before running this script
@@ -159,9 +159,6 @@ for data_type in datatypes:
                 all_enrichments[read_dir]["all_variants"].loc[:,read_depth < min_coverage] = 0
                 all_enrichments[read_dir]["enrichment_counts"].loc[:,read_depth < min_coverage] = np.nan
                 all_enrichments[read_dir]["enrichment_relative"].loc[:, read_depth < min_coverage] = np.nan
-                # if data_type == "DNA":
-                #     all_enrichments[read_dir]["indels"].loc[:, read_depth < min_coverage] = 0
-                #     all_enrichments[read_dir]["indel_freqs"].loc[:, read_depth < min_coverage] = 0
 
             # set reference sequence to the region of interest
             if cut_to_roi:

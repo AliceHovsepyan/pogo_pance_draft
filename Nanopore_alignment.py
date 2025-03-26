@@ -6,16 +6,18 @@ import csv
 import subprocess
 from pathlib import Path
 
+
+#### align Nanopore reads using minimap2
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Filter and demultiplex reads.")
     parser.add_argument("input", type=str, help="Path to the folder storing the input bam files")
     parser.add_argument("output", type=str, help="Folder path to store the output")
     parser.add_argument("ref_path", type=str, help="Path to the reference sequence fasta")
-    #parser.add_argument("ref_path", type=str, help="Path to the reference sequence fasta")
 
     args = parser.parse_args()
 
-    # Assign to shorter variable names
     input_folder = Path(args.input)
     output_folder = Path(args.output)
     ref_path = Path(args.ref_path)
@@ -32,11 +34,10 @@ if __name__ == "__main__":
     
 
     for input_file in input_files:
-        output_file = output_folder / input_file  # Use stem of Path object
+        output_file = output_folder / input_file  
 
         print(f"Aligning {input_file}.fastq.gz -> {output_file}.bam")
 
-        #command = f"minimap2 -ax map-ont {ref_path} {input_folder}/{input_file}.fastq.gz > {output_file}.sam" ##Map short accurate genomic reads
         command = f"minimap2 --MD -ax map-ont {ref_path} {input_folder}/{input_file}.fastq.gz | samtools view -bS | samtools sort -o {output_file}.bam"
 
 

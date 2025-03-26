@@ -8,15 +8,20 @@ import os.path
 import json
 from plotting import *
 from Bio import SeqIO
-from characterization_from_blast_alignments import *
+from DMS_analysis.Illumina_functions import *
 from matplotlib.colors import LinearSegmentedColormap
+from linker_analysis_functions import *
 
-data_dir = "data/fastq/P04_RL1_linkers" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
+data_dir = "data/Illumina/R36" ## within data_dir, there should be two directories: 1) /references (containing the reference sequence) and 2) /blast/alignments (containing the blast output files)
 
 with open(f"{data_dir}/config.json", "r") as file:
     config = json.load(file)
 
 read_directions = [ "R1", "R2"] #read directions that should be considered for the analysis ["R1", "R2"] or ["R1"] or ["R2"]
+
+
+wt_left_linker = "INESSGL"
+wt_right_linker = "IDEAAKGSLHPP"
 
 roi_startseq = "gccacaa".upper() ## LOV2 start # set region of interest, that has to be included in the reads to be considered for the analysis, e.g. LOV2 start site
 roi_endseq = "tgctgaaaac".upper() ## LOV2 end
@@ -29,9 +34,6 @@ Sections = config["Sections"]
 min_coverage = 2000
 data_type = "AA" ## "DNA" or "AA"
 
-wt_left_linker = "INESSGL"
-wt_right_linker = "IDEAAKGSLHPP"
-
 colors = ["#22577A", "#C7F9CC"] # Light green to light blue
 
 cmap = LinearSegmentedColormap.from_list("custom_cmap", colors , N=256)
@@ -40,51 +42,6 @@ cmap = LinearSegmentedColormap.from_list("custom_cmap", colors , N=256)
 print("############# calculation for", data_type, "#############")
 
 ############# 
-
-genetic_code = {
-'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M',
-'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T',
-'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K',
-'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R',
-'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L',
-'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P',
-'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q',
-'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R',
-'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V',
-'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A',
-'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E',
-'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G',
-'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S',
-'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L',
-'TAC': 'Y', 'TAT': 'Y', 'TAA': '*', 'TAG': '*',
-'TGC': 'C', 'TGT': 'C', 'TGA': '*', 'TGG': 'W',
-    }
-
-codons = list(genetic_code.keys())
-
-
-ecoli_pref = { ### codons used for retron library (RL8) construction
-            "A": 'GCG',
-            "R": 'CGT',
-            "N": 'AAC',
-            "D": 'GAT',
-            "C": 'TGC',
-            "Q": 'CAG',
-            "E": 'GAA',
-            "G": 'GGC',
-            "H": 'CAT',
-            "I": 'ATT',
-            "L": "CTG",
-            "K": 'AAA',
-            "M": 'ATG',
-            "F": "TTT",
-            "P": 'CCG',
-            "S": 'AGC',
-            "T": 'ACC',
-            "W": 'TGG',
-            "Y": "TAT",
-            "V": 'GTG',
-}
 
 for Bc in used_Barcodes:
     print("##############", Bc, "##############")
@@ -189,7 +146,7 @@ for Bc in used_Barcodes:
             ###### secondly, analyze the linker variants
             if data_type == "AA":
                 print("analyze linker variants for", read_dir)
-                linkers , _ = get_linker_variants_from_blast_alignment(linker_alignments,wt_linker = wt_left_linker if read_dir=="R1" else wt_right_linker,read_dir=read_dir) 
+                linkers , _ = get_linker_variants(linker_alignments,wt_linker = wt_left_linker if read_dir=="R1" else wt_right_linker,read_dir=read_dir) 
 
                 # sort linkers by frequency
                 linkers_sorted = {k: v for k, v in sorted(linkers.items(), key=lambda item: item[1], reverse=True)}

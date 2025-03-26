@@ -13,8 +13,9 @@ from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 from functions_ import *
 from preprocessing_functions import *
-
 import matplotlib
+
+
 custom_params = {"axes.spines.right": False, "axes.spines.top": False,'axes.linewidth':1}
 sns.set_theme(context="paper",
               style='ticks',
@@ -71,7 +72,8 @@ def plot_mutation_spectrum(data,
                            samplename="" , 
                            FigFolder = None, 
                            colormap = "viridis",
-                           data_type = "DNA"):
+                           data_type = "DNA",
+                           figuresize = (3,3)):
     """
     plot mutation spectrum (%) as heatmap
 
@@ -79,7 +81,7 @@ def plot_mutation_spectrum(data,
     savepath = folder path to save the figure
     samplename = name of the sample 
     """
-    f, ax = plt.subplots(figsize=(3, 3))
+    f, ax = plt.subplots(figsize=figuresize)
     sns.heatmap(data, annot=True if data_type=="DNA" else False, linewidths=.5, ax=ax, vmin = 0, cbar = False if data_type=="DNA" else True, square = True, linecolor = "black", cmap = colormap)
     plt.xlabel('Mutated base (%)')
     plt.ylabel('Reference base (%)')
@@ -106,7 +108,8 @@ def plot_mut_rate_per_pos(data,
                           data_type = "DNA",
                           samplename = "", 
                           FigFolder = None,
-                          vmax = None):
+                          vmax = None,
+                          figuresize = (20,2)):
     """
     plot the mutation rate per position 
 
@@ -123,7 +126,7 @@ def plot_mut_rate_per_pos(data,
     else: 
         x_ticklabels = [ref for ref in ref_seq]
 
-    plt.figure(figsize=(20,2))
+    plt.figure(figsize=figuresize)
     sns.heatmap(pd.DataFrame(data).T, cmap = "viridis", cbar = True, cbar_kws = {"pad": 0.02, "label": "Mutation rate" },linecolor="black", xticklabels=x_ticklabels, yticklabels=False, vmax=vmax)
     plt.xlabel("Position")
     plt.xticks(rotation = 1 if data_type != "Codons" else 90,fontsize=6 if data_type != "DNA" else 3)
@@ -144,7 +147,8 @@ def plot_mutation_enrichment(variants_df,
                              FigFolder = None, 
                              cmap = "viridis", 
                              cbar_label = "mutation rate", 
-                             vmax = None):
+                             vmax = None,
+                             figuresize = (20,7)):
     """
     plot mutation enrichment (heatmap, with ref nts/codons/AA in grey)
 
@@ -161,7 +165,7 @@ def plot_mutation_enrichment(variants_df,
         seq_pos = [ref_seq[i:i+3] for i in range(0, len(ref_seq)//3*3, 3)]
         print(seq_pos)
 
-    plt.figure(figsize=(20,7))    
+    plt.figure(figsize=figuresize)    
     ax = sns.heatmap(data=variants_df, cmap=cmap, cbar_kws={'label': cbar_label, "pad": 0.02}, yticklabels=True, xticklabels=True, center=0 if cmap == "coolwarm" else None, vmax=vmax, vmin=-vmax if (cmap=="coolwarm" and vmax) else None)
 
     for _, spine in ax.spines.items():

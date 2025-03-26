@@ -7,83 +7,6 @@ from functions_ import mask_ref_in_variants_df
 import numpy as np
 
 
-
-# def read_cleaning(input_folder,  ref, cut_n_bases_from_start = 9):
-
-#     bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
-#     all_reads = []
-#     #all_ids = []
-#     indels = pd.DataFrame(columns = (range(len(ref))), index = ["I", "D"], data = 0)
-
-#     for file_nr, bamfile_name in enumerate(bam_files):
-
-#         bam_path = os.path.join(input_folder, bamfile_name)  
-#         bamfile = pysam.AlignmentFile(bam_path, "rb") 
-#         # get_aligned_pairs(self, matches_only=False, with_seq=False, with_cigar=False)
-#         # a list of aligned read (query) and reference positions.
-#         # Each item in the returned list is a tuple consisting of the 0-based offset from the start of the read sequence followed by the 0-based reference position.
-#         # For inserts, deletions, skipping either query or reference position may be None.
-#         # For padding in the reference, the reference position will always be None.
-#         print("Status:", file_nr, "/", len(bam_files), "done")
-#         # Iterate over reads in the SAM file
-#         for read in bamfile.fetch():
-#             if read.is_unmapped or read.query_sequence is None:
-#                 print(f"Skipping read {read.query_name}")
-#                 continue 
-
-#             alignment_start = read.reference_start 
-#             seq = read.query_sequence
-#             refined_seq_list = []
-
-#             for cigar_tuple in read.get_aligned_pairs(with_seq=True, with_cigar=True): 
-#                 if cigar_tuple[-1].value == 0: ## MATCH
-#                     refined_seq_list.append(seq[cigar_tuple[0]])
-
-#                 elif cigar_tuple[-1].value == 1: ## INSERTION
-#                     indels.loc["I", len(refined_seq_list)] += 1
-
-#                 elif cigar_tuple[-1].value == 2: ## DELETION
-#                     refined_seq_list.append("-")
-#                     indels.loc["D", cigar_tuple[1]] += 1
-
-#                 # elif cigar_tuple[-1].value == 3: ## SKIPPED REGION i.e. "deletion"
-#                 #     refined_seq_list.append("-")
-#                 #     indels.loc["N", cigar_tuple[1]] += 1
-                
-#                 # elif cigar_tuple[-1] == 4: ## SOFT CLIPPING
-#                 #     continue ## skip the soft clipped bases
-
-#                 # elif cigar_tuple[-1] == 5: ## HARD CLIPPING
-#                 #     continue
-                    
-#                 # elif cigar_tuple[-1] == 6: ## PADDING
-#                 #     print("Padding")
-                
-#                 # elif cigar_tuple[-1] == 7: ## SEQ MATCH
-#                 #     refined_seq_list.append( seq[cigar_tuple[0]])
-
-#                 # elif cigar_tuple[-1] == 8: ## SEQ MISMATCH
-#                 #     refined_seq_list.append( seq[cigar_tuple[0]])
-
-#                 # elif cigar_tuple[-1] == 9: ## CBACK
-#                 #     print("CBACK")
-#                 refined_seq = "".join(refined_seq_list)
-
-
-#             if alignment_start < cut_n_bases_from_start: 
-#                 cut_start = cut_n_bases_from_start-alignment_start
-#                 refined_seq = refined_seq[cut_start:]
-#                 all_reads.append(refined_seq)
-#                 #all_ids.append(read.query_name)
-                
-#         print(f"Processed {bamfile_name}")
-
-#     print("total reads:", len(all_reads))
-
-#     return all_reads, indels
-
-
-
 def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
     """
     Function to characterize the DMS alignments, by counting the number of insertions, deletions and substitutions per position
@@ -166,6 +89,19 @@ def characterize_DMS_Nanopore(aligned_reads, ref, data_type = "AA"):
 import re
 
 def read_cleaning_(input_folder, ref, cut_n_bases_from_start=48):
+    """
+    process aligned reads so that they are forced to be in frame, i.e. if there is a deletion in the read, a "-" is added, if there is a insertion in the read, the position is skipped. 
+    This is necessary due to the high error/indel rate of Nanopore sequencing 
+    Also makes sure that all reads start at the same position (cut_n_bases_from_start)
+
+    args: 
+    input_folder: folder with .bam files that should be processed
+    ref: reference sequence, to which the reads were aligned
+    cut_n_bases_from_start: number of positions, that should be cut from the reference start (also the reads), so that all of the reads start (in frame) at the same position (if they do align to this position, the reads will be thrown out) --> make sure that after cutting these many bases from the ref start, the read is in frame
+
+    returns: 
+    1. a list of all processed reads, 2. a dataframe of indels that are present in the reads after alignment 3. a list of the qualities corresponding to the reads (insertions are skipped, deletions are given empty strings)
+    """
     bam_files = [f for f in os.listdir(input_folder) if f.endswith('.bam')]
     all_reads = []
     indels = pd.DataFrame(columns=range(len(ref)), index=["I", "D"], data=0)
@@ -271,9 +207,6 @@ def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right,
 
         print("Status:", file_nr + 1, "/", len(bam_files), "done")
 
-        # left_linker_region = list(range(left_linker_pos-left_linker_region_len, left_linker_pos))
-        # right_linker_region = list(range(right_linker_pos, right_linker_pos+righ_linker_region_len))
-
         for read in bamfile.fetch():
             if read.is_unmapped or read.query_sequence is None:
                 print(f"Skipping read {read.query_name}")
@@ -283,7 +216,6 @@ def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right,
             alignment_start = read.reference_start
             seq = read.query_sequence
             qualitities = read.query_qualities
-            #refined_qualities = []
             refined_seq_list = []
             refined_ref_list = []
             ref_pos = 0  # Reference position in the read
@@ -324,15 +256,6 @@ def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right,
             refined_seq = "".join(refined_seq_list)
             refined_ref = "".join(refined_ref_list)
 
-            # Cut off bases from the start if needed
-            # if alignment_start < cut_n_bases_from_start:
-            #     cut_start = cut_n_bases_from_start - alignment_start
-            #     refined_seq = refined_seq[cut_start:]
-            #     refined_qualities = refined_qualities[cut_start:]
-
-            #     all_reads.append(refined_seq)
-            #     all_qualities.append(refined_qualities)
-
             cut_site_left = refined_ref.find(cut_site_seq_left) 
             cut_site_right = refined_ref.find(cut_site_seq_right) 
 
@@ -345,11 +268,7 @@ def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right,
                                                  "qseq": refined_ref[cut_site_right:cut_site_right+right_linker_region_len]}
                 
             else: 
-                # all_left_linkers["id"+str(id_nr)] = {"hseq" : "", 
-                #                                      "qseq" : refined_ref[cut_site_left-left_linker_region_len:cut_site_left]}
                 left_linker_excluded +=1
-                # all_right_linkers["id"+str(id_nr)] = {"hseq": "",
-                #                                     "qseq": refined_ref[cut_site_right:cut_site_right+right_linker_region_len]}
                 right_linker_excluded +=1
 
             id_nr += 1
@@ -363,107 +282,16 @@ def get_linker_regions(input_folder, ref, cut_site_seq_left, cut_site_seq_right,
 
 
 
-def get_linker_variants_for_Nanopore(linker_alignments, wt_linker = "SG", read_dir = "R1"):
-    """
-    Function to characterize linker variants from the blast alignments
-
-    args: 
-    linker_alignments: dict, with the blast algined sequences (hseq, qseq) of the linker
-    wt_linker: str, the wildtype linker AA sequence 
-    read_dir: str, "R1" or "R2"
-
-    returns:
-    linkers: dict, with the counts of the linker variants
-    linker_list: list, with all the linker sequences
-    """
-
-    frameshifts = 0
-    linker_counts = {}
-    linker_list = []
-    for x in linker_alignments.values():
-        linker = ""
-        qseq = x["qseq"]
-        hseq = x["hseq"]
-
-        is_frameshift_read = (qseq.count("-") - hseq.count("-")) %3 != 0
-        ##### Exclude frameshift reads 
-        if is_frameshift_read:
-            # Insertions (shown as "-" in ref) and deletions that sum up to not multiple of three lead to frameshifts -> exclude these reads
-            frameshifts += 1
-            continue
-
-        ##### WT sequences
-        elif qseq == hseq:  # WT linkers with differences in the rest of the sequence are taken into account below
-            linker_counts["wt"] = linker_counts.get("wt", 0) + 1
-            linker = "wt"
-
-        ##### Reads with deletions 
-        elif (qseq.count("-") - hseq.count("-")) < 0:  # Deletions that are multiple of 3, not leading to frameshifts
-                correct_by = 3 - (hseq.count("-") % 3) ## we need to correct for the shift in the index, due to the deletion, since we use a **fixed** length for all hseqs, and not the start of the read, thus, based on this alignment and selection of the region, deletions induce frameshifts (although they may not induce frameshifts in real, due to mapped insertions, i.e. qseq.count("-") - hseq.count("-") %3 )== 0) (this is different to analysis of Illumina from blast alignments, where we always use the whole read, i.e. if we have a deletion, we can just skip the bases in the read to keep in frame (see get_linker_variants_from_blast_alignment)
-                del_count = (hseq.count("-") - qseq.count("-")) //3 # Number of deletions in AA level
-                hseq_filt = re.sub("-", "", hseq)
-                if read_dir == "R2": 
-                    linker = translate_dna2aa(hseq_filt)[:len(wt_linker)-(del_count)]  # Linker shortened by 3 Nts = 1 AA
-                else: 
-                    hseq_filt = hseq_filt[correct_by:]
-                    linker = translate_dna2aa(hseq_filt)[-len(wt_linker)+(del_count):]  # Linker shortened by 3 Nts = 1 AA
-
-                linker_counts[linker] = linker_counts.get(linker, 0) + 1
-
-        ###### Reads with substitutions 
-        elif (qseq.count("-") - hseq.count("-")) == 0:  # Linker was substituted, but no deletions or insertions present
-            hseq_filt = re.sub("-", "", hseq)
-            correct_by = 3 - (hseq.count("-") %3) 
-            del_count = hseq.count("-")
-            if read_dir == "R2":
-                if hseq_filt[:len(wt_linker) * 3] == qseq[:len(wt_linker) * 3]:
-                    linker_counts["wt"] = linker_counts.get("wt", 0) + 1
-                else: 
-                    linker = translate_dna2aa(hseq_filt)[:len(wt_linker)]
-                    linker_counts[linker] = linker_counts.get(linker, 0) + 1
-            else: 
-                if hseq_filt[-len(wt_linker) * 3:] == qseq[-len(wt_linker) * 3:]:  
-                    # WT linker (but differences in the rest (e.g beginning) of the sequence, thus these did not meet the first criterion)
-                    linker_counts["wt"] = linker_counts.get("wt", 0) + 1
-                else: 
-                    hseq_filt = hseq_filt[correct_by:]
-                    linker = translate_dna2aa(hseq_filt)[-len(wt_linker):]
-                    linker_counts[linker] = linker_counts.get(linker, 0) + 1
-
-            
-        ###### Reads with insertions
-        elif (qseq.count("-")- hseq.count("-")) > 0:
-            insertion_len = (qseq.count("-") - hseq.count("-")) //3 # AA level  - hseq.count("-") 
-            hseq_filt = re.sub("-", "", hseq)
-            correct_by = 3 - (hseq.count("-") % 3)
-            if read_dir == "R2": 
-                linker = translate_dna2aa(hseq_filt)[:len(wt_linker) + insertion_len]
-                linker_counts[linker] = linker_counts.get(linker, 0) + 1
-            else: 
-                hseq_filt = hseq_filt[correct_by:]
-                linker = translate_dna2aa(hseq_filt)[-len(wt_linker) - insertion_len:]
-                linker_counts[linker] = linker_counts.get(linker, 0) + 1
-        #### All other reads
-        else:
-            print("sequence", hseq, "does not meet any criteria")
-        
-        linker_list.append(linker)
-        
-        if linker and linker == "D*RKPAV": 
-            print("hseq", hseq)
-            print("qseq", qseq)
-            print("linker", linker)
-    print(frameshifts, "reads excluded due to frameshifts")
-
-    return linker_counts, linker_list
 
 def get_genotype_dict_from_AAseqs(all_Aas, ref_AAseq, ref_aa_annot, not_masked_positions = None, combined = False): 
     """
     Function to get the genotype dictionary from the AA sequences of the reads
+
     all_Aas: list of AA sequences of the reads
     ref_AAseq: reference AA sequence
     ref_aa_annot: list of the reference AA annotations
     not_masked_positions: list of positions that should be considered
+    combined: whether or not the kind of mutation should be considered when calculating the genotypes
 
     returns: 
     genotypes: dictionary with the genotypes and their counts
@@ -477,7 +305,7 @@ def get_genotype_dict_from_AAseqs(all_Aas, ref_AAseq, ref_aa_annot, not_masked_p
                 continue
             else:
                 if Aa != "X" and Aa != ref_AAseq[idx]: 
-                    observed_mut = f"{ref_aa_annot[idx]}{Aa}" if combined else ref_aa_annot[idx]
+                    observed_mut = f"{ref_aa_annot[idx]}{Aa}" if not combined else ref_aa_annot[idx]
                     variant.append(observed_mut)
             
         if len(variant) == 0: 

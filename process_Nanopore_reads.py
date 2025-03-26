@@ -14,10 +14,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Assign to shorter variable names
     input_folder = args.input
     output_folder = args.output
     ref_path = args.ref_path
+
     cut_n_bases_from_start = 48 ## cut the first 48 bases of the reads
 
     if not os.path.exists(input_folder):
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     all_reads, indels, all_qualitities = read_cleaning_(input_folder, ref, cut_n_bases_from_start)
 
-    ### save cleaned reads
+    ### save processed reads
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
